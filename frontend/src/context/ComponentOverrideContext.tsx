@@ -1,7 +1,7 @@
 import React, { createContext, ReactNode, useContext } from 'react';
 
 // Define a type for the component map
-interface ComponentOverrides {
+export interface ComponentOverrides {
    [key: string]: React.ComponentType<any>;
 }
 

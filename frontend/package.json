@@ -4,6 +4,7 @@
    "version": "0.2.0",
    "author": "Plutonhq",
    "license": "Apache-2.0",
+   "repository": "https://github.com/plutonhq/pluton",
    "publishConfig": {
       "access": "public"
    },
