@@ -788,15 +788,16 @@ async function generateExecutables() {
   const pkgTargets = Object.values(targets)
     .map((t) => t.pkgTarget)
     .join(",");
-  // Use package.json as entry point so pkg reads the configuration (bin, pkg.scripts, etc.)
-  const entryPoint = join(backendDir, "package.json");
+  // Load pkg configuration from backend/pkg.config.json
+  const entryPoint = join(backendDir, "dist", "pkg-index.cjs");
+  const pkgConfig = join(backendDir, "pkg.config.json");
 
   console.log(`\n🔨 Building executables for all platforms...`);
   console.log(`   Targets: ${pkgTargets}`);
   console.log(`   Output name: ${OUTPUT_NAME}`);
 
   // Output to pkg-builds directory to avoid naming conflicts with distribution folders
-  const pkgCommand = `npx pkg ${entryPoint} --targets ${pkgTargets} --output ${join(pkgBuildsDir, OUTPUT_NAME)} --compress GZip --public --public-packages "*" --options expose-gc`;
+  const pkgCommand = `npx pkg --config ${pkgConfig} ${entryPoint} --targets ${pkgTargets} --output ${join(pkgBuildsDir, OUTPUT_NAME)} --compress GZip --public --public-packages "*" --options expose-gc`;
 
   try {
     exec(pkgCommand, { cwd: rootDir });

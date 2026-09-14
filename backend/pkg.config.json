@@ -1,0 +1,16 @@
+{
+	"name": "@plutonhq/core-backend",
+	"bin": "dist/pkg-index.cjs",
+	"pkg": {
+		"scripts": [
+			"dist/pkg-index.cjs"
+		],
+		"assets": [
+			"public/**/*",
+			"node_modules/**/*",
+			"!node_modules/better-sqlite3/**/*",
+			"drizzle/**/*",
+			"src/notifications/templates/**/*"
+		]
+	}
+}
