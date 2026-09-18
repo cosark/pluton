@@ -28,8 +28,7 @@ export class RestoreEventListener {
 			this.onRestoreComplete(event)
 		);
 		this.localAgent.on('restore_error', (event: RestoreErrorEvent) => this.onRestoreError(event));
-		this.localAgent.on('restore_failed', (event: RestoreErrorEvent) => this.onRestoreFailed(event));
-	}
+		this.localAgent.on('restore_failed', (event: RestoreErrorEvent) => this.onRestoreFailed(event));	}
 
 	private async onRestoreStart(data: RestoreStartEvent) {
 		await this.restoreEventService.onRestoreStart(data);

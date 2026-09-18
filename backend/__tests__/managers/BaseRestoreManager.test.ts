@@ -104,7 +104,7 @@ describe('BaseRestoreManager', () => {
 
 			expect(addPriorityJobSpy).toHaveBeenCalledWith(
 				'Restore',
-				{ backupId, restoreId: 'generated-restore-id', options },
+				{ backupId, restoreId: 'generated-restore-id', planId: options.planId, options },
 				2,
 				60000
 			);

@@ -26,6 +26,8 @@ import {
 	runHelper,
 } from '../../utils/linuxHelper';
 import { checkDestinationSpace } from '../../utils/checkDestinationSpace';
+import { isMetadataOnlyRestoreFailure } from '../../utils/restic/exitCodes';
+import { planLogger } from '../../utils/logger';
 
 export class RestoreHandler {
 	private runningRestores = new Set<string>();
@@ -127,7 +129,7 @@ export class RestoreHandler {
 			}
 
 			// --- 4. CENTRALIZED ERROR HANDLING ---
-			const permanentlyFailed = retryInfo.attempts + 1 > retryInfo.maxAttempts;
+			const permanentlyFailed = retryInfo.attempts + 1 >= retryInfo.maxAttempts;
 
 			await this.progressManager.markCompleted(
 				planId,
@@ -148,7 +150,7 @@ export class RestoreHandler {
 			}
 
 			// Emit the 'error' event for the listener to log the attempt failure.
-			this.emitter.emit('restore_error', {
+			this.emitter.emit(permanentlyFailed ? 'restore_failed' : 'restore_error', {
 				planId,
 				backupId,
 				restoreId,
@@ -289,20 +291,20 @@ export class RestoreHandler {
 		try {
 			const result = useHelper
 				? await runHelperRestore(
-					helperArgs,
-					handlers.onProgress,
-					handlers.onError,
-					handlers.onComplete,
-					process => processManager.trackProcess(`restore-${restoreId}`, process)
-				)
+						helperArgs,
+						handlers.onProgress,
+						handlers.onError,
+						handlers.onComplete,
+						process => processManager.trackProcess(`restore-${restoreId}`, process)
+					)
 				: await runResticCommand(
-					resticOpts.args,
-					resticOpts.env,
-					handlers.onProgress,
-					handlers.onError,
-					handlers.onComplete,
-					process => processManager.trackProcess(`restore-${restoreId}`, process)
-				);
+						resticOpts.args,
+						resticOpts.env,
+						handlers.onProgress,
+						handlers.onError,
+						handlers.onComplete,
+						process => processManager.trackProcess(`restore-${restoreId}`, process)
+					);
 			await this.updateProgress(planId, restoreId, 'restore', 'RESTORE_OPERATION_COMPLETE', true);
 			return result;
 		} catch (error: any) {
@@ -340,9 +342,14 @@ export class RestoreHandler {
 				/xattr\.LSet.*operation not permitted/i.test(errMsg) &&
 				!/fatal(?!.*xattr)/i.test(errMsg);
 
-			if (isXattrOnly) {
+			const isMetadataOnly = isMetadataOnlyRestoreFailure(
+				restoreError?.code,
+				restoreError?.stderr || errMsg
+			);
+
+			if (isXattrOnly || isMetadataOnly) {
 				console.warn(
-					`[RestoreHandler] Restic reported xattr errors but file data was restored. Treating as success.`
+					`[RestoreHandler] Restic reported metadata errors but file data was restored. Treating as success.`
 				);
 				await this.updateProgress(
 					planId,
@@ -350,8 +357,11 @@ export class RestoreHandler {
 					'restore',
 					'RESTORE_OPERATION_COMPLETE',
 					true,
-					'Restore completed but some macOS extended attributes could not be set (SIP restriction).'
+					isXattrOnly
+						? 'Restore completed but some macOS extended attributes could not be set (SIP restriction).'
+						: 'Restore completed but some file metadata (timestamps, ownership or permissions) could not be applied.'
 				);
+				this.emitter.emit('restore_complete', { backupId, restoreId, planId, success: true });
 				return '';
 			}
 
@@ -523,9 +533,7 @@ export class RestoreHandler {
 				}
 			}
 		} else if (options.target && options.target !== '/') {
-			try {
-				await access(path.dirname(options.target), constants.W_OK);
-			} catch (error) {
+			if (!(await canWriteTargetOrParent(options.target))) {
 				throw new Error(`Target path not writable: ${options.target}`);
 			}
 		}
@@ -660,7 +668,8 @@ export class RestoreHandler {
 
 	private async validateHelperRestoreTarget(options: RestoreOptions): Promise<void> {
 		const target = options.target || '/';
-		const allowRootTarget = target === '/' && ((options.includes?.length || 0) > 0 || (options.sources?.length || 0) > 0);
+		const allowRootTarget =
+			target === '/' && ((options.includes?.length || 0) > 0 || (options.sources?.length || 0) > 0);
 		if (isHelperDeniedTarget(target, allowRootTarget)) {
 			throw new Error(
 				`Restore target is not allowed for privileged restore: ${target}. Choose a non-system directory such as /srv/pluton-restore.`
@@ -715,19 +724,17 @@ export class RestoreHandler {
 				this.progressManager.updateResticProgress(planId, restoreId, progressLine);
 			},
 			onError: (data: Buffer) => {
-				this.emitter.emit('restore_error', {
-					backupId,
-					restoreId,
-					planId,
-					error: data.toString(),
-				});
+				// Only log here. execute() sends one final restore_error or restore_failed event with
+				// the same text, and a metadata-only failure still counts as a successful restore.
+				planLogger('restore', planId, backupId).error(data.toString());
 			},
 			onComplete: (code: number | null) => {
+				if (code !== 0) return;
 				this.emitter.emit('restore_complete', {
 					backupId,
 					restoreId,
 					planId,
-					success: code === 0,
+					success: true,
 				});
 			},
 		};

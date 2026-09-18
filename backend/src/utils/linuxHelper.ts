@@ -161,11 +161,18 @@ export async function canWriteTargetOrParent(target: string): Promise<boolean> {
 		}
 	}
 
-	try {
-		await access(path.dirname(normalized), constants.W_OK);
-		return true;
-	} catch {
-		return false;
+	let current = path.dirname(normalized);
+	while (true) {
+		try {
+			await access(current, constants.W_OK);
+			return true;
+		} catch (error: any) {
+			const parent = path.dirname(current);
+			if (error?.code !== 'ENOENT' || parent === current) {
+				return false;
+			}
+			current = parent;
+		}
 	}
 }
 

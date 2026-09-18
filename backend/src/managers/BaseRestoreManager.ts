@@ -34,7 +34,12 @@ export class BaseRestoreManager extends EventEmitter {
 	): Promise<{ success: boolean; result: string }> {
 		const restoreId = generateUID();
 
-		jobQueue.addPriorityJob('Restore', { backupId, restoreId, options }, 2, 60 * 1000);
+		jobQueue.addPriorityJob(
+			'Restore',
+			{ backupId, restoreId, planId: options.planId, options },
+			2,
+			60 * 1000
+		);
 		return { success: true, result: 'Restore job has been added to the queue.' };
 	}
 

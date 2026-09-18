@@ -98,6 +98,7 @@ jest.mock('fs', () => ({
 import { EventEmitter } from 'events';
 import { RestoreHandler } from '../../../src/managers/handlers/RestoreHandler';
 import os from 'os';
+import * as linuxHelper from '../../../src/utils/linuxHelper';
 
 describe('RestoreHandler', () => {
 	let handler: RestoreHandler;
@@ -437,7 +438,7 @@ describe('RestoreHandler', () => {
 		it('should throw error when target path not writable', async () => {
 			jest.spyOn(os, 'freemem').mockReturnValue(1024 * 1024 * 1024);
 			jest.spyOn(os, 'cpus').mockReturnValue(new Array(4));
-			mockAccess.mockRejectedValueOnce(new Error('Permission denied'));
+			jest.spyOn(linuxHelper, 'canWriteTargetOrParent').mockResolvedValueOnce(false);
 
 			await expect(handler.canRun(baseOptions)).rejects.toThrow('Target path not writable');
 		});
@@ -773,15 +774,6 @@ describe('RestoreHandler', () => {
 			handlers.onProgress(Buffer.from('progress data'));
 			expect(mockUpdateResticProgress).toHaveBeenCalledWith('plan-1', 'restore-1', 'progress data');
 
-			// Test error handler
-			handlers.onError(Buffer.from('Error message'));
-			expect(errorListener).toHaveBeenCalledWith({
-				backupId: 'backup-1',
-				restoreId: 'restore-1',
-				planId: 'plan-1',
-				error: 'Error message',
-			});
-
 			// Test complete handler
 			handlers.onComplete(0);
 			expect(completeListener).toHaveBeenCalledWith({
@@ -791,14 +783,12 @@ describe('RestoreHandler', () => {
 				success: true,
 			});
 
-			// Test complete handler with failure
+			handlers.onError(Buffer.from('Error message'));
+
+			completeListener.mockClear();
 			handlers.onComplete(1);
-			expect(completeListener).toHaveBeenCalledWith({
-				backupId: 'backup-1',
-				restoreId: 'restore-1',
-				planId: 'plan-1',
-				success: false,
-			});
+			expect(completeListener).not.toHaveBeenCalled();
+			expect(errorListener).not.toHaveBeenCalled();
 		});
 	});
 
@@ -932,6 +922,44 @@ describe('RestoreHandler', () => {
 				'RESTORE_OPERATION_ERROR',
 				true,
 				'Restore failed'
+			);
+		});
+
+		it('should treat a metadata-only restic failure as success', async () => {
+			const completeListener = jest.fn();
+			emitter.on('restore_complete', completeListener);
+
+			const stderr = [
+				'{"message_type":"error","error":{"message":"failed to restore timestamp of \\"C:\\\\R\\\\C\\\\Users\\": Access is denied."},"during":"restore","item":"\\\\C\\\\Users"}',
+				'{"message_type":"exit_error","code":1,"message":"Fatal: There were 1 errors"}',
+			].join('\n');
+			const resticError: any = new Error(stderr);
+			resticError.code = 1;
+			resticError.stderr = stderr;
+			mockRunResticCommand.mockRejectedValueOnce(resticError);
+
+			const result = await handler['executeRestorePhase'](
+				'plan-1',
+				'backup-1',
+				'restore-1',
+				mockSnapshot,
+				baseOptions
+			);
+
+			expect(result).toBe('');
+			expect(completeListener).toHaveBeenCalledWith({
+				planId: 'plan-1',
+				backupId: 'backup-1',
+				restoreId: 'restore-1',
+				success: true,
+			});
+			expect(mockUpdateAction).toHaveBeenCalledWith(
+				'plan-1',
+				'restore-1',
+				'restore',
+				'RESTORE_OPERATION_COMPLETE',
+				true,
+				'Restore completed but some file metadata (timestamps, ownership or permissions) could not be applied.'
 			);
 		});
 	});

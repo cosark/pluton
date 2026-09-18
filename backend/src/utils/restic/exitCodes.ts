@@ -134,6 +134,40 @@ export function isResticBackupWarning(code?: number): boolean {
 	return code === ResticExitCode.IncompleteBackup;
 }
 
+const RESTORE_METADATA_ERROR_PATTERNS = [
+	/^failed to restore timestamp of /,
+	/^error restoring creation time for: /,
+	/^error restoring file attributes for: /,
+	/^error restoring security descriptor for: /,
+	/^(lchown|chmod) .*: (operation not permitted|permission denied)$/i,
+];
+
+// True when restic restore exited with code 1 and every reported error only failed to apply file metadata.
+export function isMetadataOnlyRestoreFailure(code: number | undefined, stderr: string): boolean {
+	if (code !== ResticExitCode.GenericError) return false;
+	const messages = stderr
+		.split(/\r?\n/)
+		.filter(line => line.trim())
+		.map(line => {
+			try {
+				return JSON.parse(line);
+			} catch {
+				return null;
+			}
+		});
+	if (messages.some(m => m?.message_type !== 'error' && m?.message_type !== 'exit_error')) {
+		return false;
+	}
+	const errorLines = messages
+		.filter(m => m.message_type === 'error')
+		.flatMap(m => String(m.error?.message || '').split(/\r?\n/))
+		.filter(line => line.trim());
+	return (
+		errorLines.length > 0 &&
+		errorLines.every(line => RESTORE_METADATA_ERROR_PATTERNS.some(p => p.test(line)))
+	);
+}
+
 export function isRetryableResticError(code?: number): boolean {
 	return classifyResticExitCode(code).retryable;
 }

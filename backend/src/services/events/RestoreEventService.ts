@@ -66,7 +66,16 @@ export class RestoreEventService {
 			}
 
 			// Create the restore entry in the Database
-			const restore = await this.restoreStore.create(parsedRestoreData);
+			const existing = await this.restoreStore.getById(restoreId);
+			const restore = existing
+				? await this.restoreStore.update(restoreId, {
+						status: 'started',
+						inProgress: true,
+						errorMsg: null,
+						ended: null,
+						taskStats: parsedRestoreData.taskStats,
+					})
+				: await this.restoreStore.create(parsedRestoreData);
 
 			if (!restore) {
 				throw new Error('Failed to create restore entry in the Database');
