@@ -9,6 +9,7 @@ import { sql } from 'drizzle-orm/sql';
 import { Plan, NewPlan, planInsertSchema, planUpdateSchema } from '../db/schema/plans';
 import { Backup } from '../db/schema/backups';
 import { Restore } from '../db/schema/restores';
+import { Device } from '../db/schema/devices';
 import {
 	BackupPlanArgs,
 	BackupVerifiedResult,
@@ -149,11 +150,7 @@ export class PlanService {
 		if (storagePath) {
 			try {
 				const isRemote = !isStorageSource && sourceId !== 'main';
-				const targetOS = isRemote
-					? device?.platform
-						? device.platform.toLowerCase()
-						: undefined
-					: undefined;
+				const targetOS = isRemote && device ? await this.resolvePathPlatform(device) : undefined;
 
 				theStoragePath = sanitizeStoragePath(storagePath, planStorage.type, targetOS);
 			} catch (error) {
@@ -220,6 +217,14 @@ export class PlanService {
 		planLogger('create', planId).info('Backup Plan created.');
 
 		return createdPlan;
+	}
+
+	/**
+	 * OS whose path rules apply to a local destination path of a remote source device.
+	 * Returns undefined to use the server's OS.
+	 */
+	protected async resolvePathPlatform(device: Device): Promise<string | undefined> {
+		return device.platform ? device.platform.toLowerCase() : undefined;
 	}
 
 	/**

@@ -12,6 +12,7 @@ import { RestoreStore } from '../../src/stores/RestoreStore';
 import { BaseRestoreManager } from '../../src/managers/BaseRestoreManager';
 import { RestoreStartEvent, RestoreCompleteEvent, RestoreErrorEvent } from '../../src/types/events';
 import * as fsPromises from 'fs/promises';
+import { registerRestoreCompleteHook } from '../../src/services/events/restoreHooks';
 
 jest.mock('../../src/db/index', () => ({
 	db: {
@@ -112,6 +113,23 @@ describe('RestoreEventService', () => {
 				})
 			);
 			expect(mockLocalAgent.emit).toHaveBeenCalledWith('restoreCreated', { backupId, restoreId });
+		});
+
+		it('should store config.extra in the restore record', async () => {
+			mockBackupStore.getById.mockResolvedValue(mockBackup);
+			mockRestoreStore.create.mockImplementation(data =>
+				Promise.resolve({ ...data, id: restoreId } as any)
+			);
+			const extra = { vm: { mode: 'stream' } };
+
+			await restoreEventService.onRestoreStart({
+				...startEvent,
+				config: { ...startEvent.config, extra },
+			});
+
+			expect(mockRestoreStore.create).toHaveBeenCalledWith(
+				expect.objectContaining({ config: { ...startEvent.config, extra } })
+			);
 		});
 
 		it('should log an error and not create a record if the backup is not found', async () => {
@@ -319,6 +337,73 @@ describe('RestoreEventService', () => {
 				inProgress: false,
 				ended: expect.any(Object),
 				completionStats: undefined, // Should be undefined as file read failed
+			});
+		});
+
+		it('should merge the event extra into config.extra on success', async () => {
+			(fsPromises.readFile as jest.Mock).mockResolvedValue('{}');
+			mockRestoreStore.getById.mockResolvedValue({
+				id: restoreId,
+				config: { target: '', includes: ['/a'], extra: { vm: { mode: 'stream' } } },
+			} as any);
+			mockRestoreStore.update.mockResolvedValue({ id: restoreId } as any);
+
+			await restoreEventService.onRestoreComplete({ ...completeEvent, extra: { vmid: '105' } });
+
+			expect(mockRestoreStore.update).toHaveBeenCalledWith(
+				restoreId,
+				expect.objectContaining({
+					status: 'completed',
+					config: { target: '', includes: ['/a'], extra: { vm: { mode: 'stream' }, vmid: '105' } },
+				})
+			);
+		});
+
+		it('should ignore the event extra when the restore failed', async () => {
+			(fsPromises.readFile as jest.Mock).mockResolvedValue('{}');
+			mockRestoreStore.getById.mockResolvedValue({ id: restoreId, status: 'started' } as any);
+			mockRestoreStore.update.mockResolvedValue({ id: restoreId } as any);
+
+			await restoreEventService.onRestoreComplete({ ...completeEvent, success: false, extra: { vmid: '105' } });
+
+			expect(mockRestoreStore.update).toHaveBeenCalledWith(
+				restoreId,
+				expect.not.objectContaining({ config: expect.anything() })
+			);
+		});
+
+		describe('completion hooks', () => {
+			const hook = jest.fn();
+			const flush = () => new Promise(resolve => setImmediate(resolve));
+
+			beforeAll(() => registerRestoreCompleteHook(hook));
+
+			it('should run the hooks once with the updated row on success', async () => {
+				// Arrange
+				(fsPromises.readFile as jest.Mock).mockResolvedValue('{}');
+				const row = { id: restoreId, status: 'completed' } as any;
+				mockRestoreStore.update.mockResolvedValue(row);
+
+				// Act
+				await restoreEventService.onRestoreComplete(completeEvent);
+				await flush();
+
+				// Assert
+				expect(hook).toHaveBeenCalledTimes(1);
+				expect(hook).toHaveBeenCalledWith(row);
+			});
+
+			it('should not run the hooks on failure', async () => {
+				// Arrange
+				(fsPromises.readFile as jest.Mock).mockResolvedValue('{}');
+				mockRestoreStore.update.mockResolvedValue({ id: restoreId, status: 'failed' } as any);
+
+				// Act
+				await restoreEventService.onRestoreComplete({ ...completeEvent, success: false });
+				await flush();
+
+				// Assert
+				expect(hook).not.toHaveBeenCalled();
 			});
 		});
 	});

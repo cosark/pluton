@@ -1,4 +1,5 @@
 import { EventEmitter } from 'events';
+import { PassThrough, Writable } from 'stream';
 
 // Mock modules BEFORE importing the function under test
 jest.mock('child_process');
@@ -391,6 +392,39 @@ describe('runResticCommand', () => {
 		const result = await promise;
 		expect(result).toBe('');
 		expect(onProgress).toHaveBeenCalled();
+	});
+
+	it('should pipe raw stdout to options.stdout without buffering or parsing', async () => {
+		mockProcess.stdout = new PassThrough();
+		const received: Buffer[] = [];
+		const sink = new Writable({
+			write(chunk, _enc, cb) {
+				received.push(chunk);
+				cb();
+			},
+		});
+		const onProgress = jest.fn();
+
+		const promise = runResticCommand(
+			['dump', 'abc123', '/vzdump-qemu-100.vma'],
+			{},
+			onProgress,
+			undefined,
+			undefined,
+			undefined,
+			{ stdout: sink }
+		);
+
+		const raw = Buffer.from([0x00, 0xff, 0x7b, 0x7d]);
+		mockProcess.stdout.write(raw);
+		mockProcess.stdout.end();
+		await new Promise(resolve => sink.on('finish', resolve));
+		mockProcess.emit('close', 0);
+
+		const result = await promise;
+		expect(result).toBe('');
+		expect(Buffer.concat(received)).toEqual(raw);
+		expect(onProgress).not.toHaveBeenCalled();
 	});
 
 	it('should keep only the summary line for streaming backup dry runs', async () => {

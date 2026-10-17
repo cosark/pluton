@@ -192,7 +192,9 @@ export class BackupEventService {
 	protected async wasFinalized(backupId: string): Promise<boolean> {
 		const backup = await this.backupStore.getById(backupId);
 		return (
-			!!backup && !backup.inProgress && (backup.status === 'completed' || backup.status === 'failed')
+			!!backup &&
+			!backup.inProgress &&
+			(backup.status === 'completed' || backup.status === 'failed')
 		);
 	}
 
@@ -246,9 +248,18 @@ export class BackupEventService {
 			};
 			const plan = await this.planStore.getById(planId);
 
-			if (plan?.method === 'rescue') {
-				// Since rescue does not do a dry run, we backfill the taskStats with the summary data
-				// from the completion event, so that it can be used in notifications and elsewhere.
+			// A backup that skipped its dry run has no real file counts in taskStats. Backfill them from the
+			// completion summary so notifications and history have accurate numbers.
+			const existingBackup = await this.backupStore.getById(backupId);
+			// If the sourceCongif was actually different from the plan's, record the resolved config
+			if (data.resolvedSourceConfig) {
+				backupPayload.sourceConfig = {
+					...((existingBackup?.sourceConfig || {}) as object),
+					...data.resolvedSourceConfig,
+				} as any;
+			}
+			const dryRunWasSkipped = (existingBackup?.taskStats as any)?.dry_run_skipped === true;
+			if (dryRunWasSkipped) {
 				const shouldBackfillTaskStats = success && summaryData;
 				if (shouldBackfillTaskStats) {
 					backupPayload.taskStats = { ...summaryData, dry_run: false } as any;

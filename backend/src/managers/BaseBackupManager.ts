@@ -17,6 +17,7 @@ import { jobQueue } from '../jobs/JobQueue';
 import { jobProcessor } from '../jobs/JobProcessor';
 import { generateUID } from '../utils/helpers';
 import { configService } from '../services/ConfigService';
+import { canWriteTargetOrParent } from '../utils/linuxHelper';
 import { BackupRunConfig } from '../types/backups';
 
 type ScheduleOptions = (BackupPlanArgs | PlanPrune) & {
@@ -75,6 +76,13 @@ export class BaseBackupManager extends EventEmitter {
 			return {
 				success: false,
 				result: 'Encryption is enabled but ENCRYPTION_KEY is not set in environment variables.',
+			};
+		}
+		// The service user (not root) creates the repo, thus a local path must be writable by it.
+		if (storage.type === 'local' && storagePath && !(await canWriteTargetOrParent(storagePath))) {
+			return {
+				success: false,
+				result: `Pluton cannot write to "${storagePath}". Give the user that runs the Pluton service write access to this folder (for example: chown pluton:pluton <folder>), then create the plan again.`,
 			};
 		}
 		// Then Create a restic repo based on the provided rclone storage and the backup path

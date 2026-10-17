@@ -6,10 +6,13 @@ import { jobQueue } from '../jobs/JobQueue';
 import { RestoreOptions } from '../types/restores';
 
 export class BaseRestoreManager extends EventEmitter {
-	private restoreHandler: RestoreHandler;
-	constructor() {
-		super();
-		this.restoreHandler = new RestoreHandler(this);
+	protected _restoreHandler?: RestoreHandler;
+
+	get restoreHandler(): RestoreHandler {
+		if (!this._restoreHandler) {
+			this._restoreHandler = new RestoreHandler(this);
+		}
+		return this._restoreHandler;
 	}
 
 	/**

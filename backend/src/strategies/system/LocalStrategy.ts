@@ -5,7 +5,7 @@ import { BaseSystemManager } from '../../managers/BaseSystemManager';
 export class LocalStrategy implements SystemStrategy {
 	constructor(protected localAgent: BaseSystemManager) {}
 
-	async getMetrics(): Promise<{ success: boolean; result: Record<string, string | number> }> {
+	async getMetrics(payload?: any): Promise<{ success: boolean; result: Record<string, string | number> }> {
 		return await this.localAgent.getMetrics();
 	}
 

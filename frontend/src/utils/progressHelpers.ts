@@ -1,5 +1,30 @@
 import { BackupProgressData } from '../@types/backups';
 
+const registeredBackupMessages: Record<string, string> = {};
+const registeredRestoreMessages: Record<string, string> = {};
+const registeredPhaseNames: Record<string, string> = {};
+
+export const registerBackupActionMessages = (messages: Record<string, string>): void => {
+   Object.assign(registeredBackupMessages, messages);
+};
+
+export const registerRestoreActionMessages = (messages: Record<string, string>): void => {
+   Object.assign(registeredRestoreMessages, messages);
+};
+
+export const registerPhaseDisplayNames = (names: Record<string, string>): void => {
+   Object.assign(registeredPhaseNames, names);
+};
+
+// Turn an unmapped action code (e.g. SOME_ACTION_START) into readable text
+const humanizeAction = (action: string): string =>
+   action
+      .toLowerCase()
+      .split('_')
+      .filter(Boolean)
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ') || action;
+
 export function generateBackupProgressMessage(progressData: BackupProgressData | null): string {
    if (!progressData?.events?.length) {
       return 'Initializing...';
@@ -29,7 +54,7 @@ export function generateBackupProgressMessage(progressData: BackupProgressData |
       finished: 'Complete',
    };
 
-   const phaseDisplay = phaseDisplayNames[phase] || phase;
+   const phaseDisplay = phaseDisplayNames[phase] || registeredPhaseNames[phase] || phase;
    const actionDisplay = getBackupEventActionMessage(action);
 
    if (phase === 'finished') {
@@ -197,7 +222,7 @@ export const getBackupEventActionMessage = (action: string, storageName?: string
       return replicationMessagesWithStorage[action](storageName);
    }
 
-   return staticMessages[action] || action;
+   return staticMessages[action] || registeredBackupMessages[action] || humanizeAction(action);
 };
 
 export function generateRestoreProgressMessage(progressData: BackupProgressData | null): string {
@@ -229,7 +254,7 @@ export function generateRestoreProgressMessage(progressData: BackupProgressData 
       finished: 'Complete',
    };
 
-   const phaseDisplay = phaseDisplayNames[phase] || phase;
+   const phaseDisplay = phaseDisplayNames[phase] || registeredPhaseNames[phase] || phase;
    const actionDisplay = getRestoreEventActionMessage(action);
 
    if (phase === 'finished') {
@@ -287,7 +312,7 @@ export const getRestoreEventActionMessage = (action: string): string => {
       TASK_CANCELLED: 'Restore Cancelled by User.',
       FAILED_PERMANENTLY: 'Failed Permanently',
    };
-   return staticMessages[action] || action;
+   return staticMessages[action] || registeredRestoreMessages[action] || humanizeAction(action);
 };
 
 export function extractResticData(progressData: BackupProgressData | null) {

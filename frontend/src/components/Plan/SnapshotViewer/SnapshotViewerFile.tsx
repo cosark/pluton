@@ -14,6 +14,7 @@ interface SnapshotViewerFileProps {
    onDirectoryClick: (path: string) => void;
    onRestore: (file: FileItem) => void;
    renderFileActions?: (file: FileItem, meta: { fileExtension: string; isDirectory: boolean }) => ReactNode;
+   hideRestore?: boolean;
    showUpgradeModal?: () => void;
 }
 
@@ -26,6 +27,7 @@ const SnapshotViewerFile = ({
    onDirectoryClick,
    onRestore,
    renderFileActions,
+   hideRestore,
    showUpgradeModal,
 }: SnapshotViewerFileProps) => {
    if (!file) return null;
@@ -94,18 +96,20 @@ const SnapshotViewerFile = ({
                      <Icon type={'download'} size={16} />
                   </button>
                )}
-               <button
-                  data-tooltip-id="htmlToolTip"
-                  data-tooltip-place="top"
-                  data-tooltip-delay-show={500}
-                  data-tooltip-html="Restore"
-                  onClick={(e) => {
-                     e.stopPropagation();
-                     onRestore(typedFile);
-                  }}
-               >
-                  <Icon type={'restore'} size={16} />
-               </button>
+               {!hideRestore && (
+                  <button
+                     data-tooltip-id="htmlToolTip"
+                     data-tooltip-place="top"
+                     data-tooltip-delay-show={500}
+                     data-tooltip-html="Restore"
+                     onClick={(e) => {
+                        e.stopPropagation();
+                        onRestore(typedFile);
+                     }}
+                  >
+                     <Icon type={'restore'} size={16} />
+                  </button>
+               )}
             </div>
          )}
       </div>

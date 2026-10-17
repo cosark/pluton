@@ -34,6 +34,8 @@ interface SnapshotViewerProps {
    isExternalLoading?: boolean;
    /** Render additional action buttons per file row (e.g. View, Download, Compare in Pro). */
    renderFileActions?: (file: FileItem, meta: { fileExtension: string; isDirectory: boolean }) => ReactNode;
+   /** Hides the per-file Restore action. */
+   hideRestore?: boolean;
    /** Extra elements rendered at the end (e.g. BackupFileLoader modal in Pro). */
    children?: ReactNode;
    primaryStorage?: { id: string; type: string; name: string };
@@ -57,6 +59,7 @@ const SnapshotViewer = ({
    toolbarRightContent,
    isExternalLoading,
    renderFileActions,
+   hideRestore = false,
    children,
    primaryStorage,
    onStorageChange,
@@ -212,11 +215,12 @@ const SnapshotViewer = ({
                onDirectoryClick={handleDirectoryClick}
                onRestore={(file) => setShowRestoreModal(file)}
                renderFileActions={renderFileActions}
+               hideRestore={hideRestore}
                showUpgradeModal={() => setShowUpgrade(true)}
             />
          );
       },
-      [currentDirectoryFiles, isSync, gridColumns, handleGoUp, handleDirectoryClick, renderFileActions],
+      [currentDirectoryFiles, isSync, gridColumns, handleGoUp, handleDirectoryClick, renderFileActions, hideRestore],
    );
 
    // Error state

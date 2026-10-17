@@ -88,7 +88,7 @@ export async function executeUserScript(
 	});
 }
 
-function isSudoersAuthorizationError(error: unknown): boolean {
+export function isSudoersAuthorizationError(error: unknown): boolean {
 	const candidate = error as { message?: string; stderr?: string };
 	const text = `${candidate?.message || ''}\n${candidate?.stderr || ''}`;
 	return (

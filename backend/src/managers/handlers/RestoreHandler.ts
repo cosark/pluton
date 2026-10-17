@@ -35,7 +35,7 @@ export class RestoreHandler {
 	private progressManager: ProgressManager;
 	private restoreStatsManager: RestoreStatsManager;
 
-	constructor(private emitter: EventEmitter) {
+	constructor(protected emitter: EventEmitter) {
 		this.progressManager = new ProgressManager(appPaths.getProgressDir(), 'restore');
 		this.restoreStatsManager = new RestoreStatsManager();
 		this.initializeProgressManager();
@@ -231,6 +231,7 @@ export class RestoreHandler {
 				overwrite: options.overwrite,
 				includes: options.includes,
 				excludes: options.excludes,
+				extra: options.extra,
 			},
 		});
 
@@ -275,7 +276,7 @@ export class RestoreHandler {
 	/**
 	 * Restore phase: executes the actual restic restore command.
 	 */
-	private async executeRestorePhase(
+	protected async executeRestorePhase(
 		planId: string,
 		backupId: string,
 		restoreId: string,
@@ -717,7 +718,7 @@ export class RestoreHandler {
 		}
 	}
 
-	private createHandlers(planId: string, backupId: string, restoreId: string) {
+	protected createHandlers(planId: string, backupId: string, restoreId: string) {
 		return {
 			onProgress: (data: Buffer) => {
 				const progressLine = data.toString().trim();

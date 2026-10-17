@@ -159,6 +159,33 @@ describe('DeviceService', () => {
 	});
 
 	// ----------------------------------------
+	// getMetrics
+	// ----------------------------------------
+	describe('getMetrics', () => {
+		const mockMetrics = { system: { manufacturer: 'Dell' }, os: {} } as DeviceMetrics;
+
+		it('should call the strategy with no payload by default', async () => {
+			mockDeviceStore.getById.mockResolvedValue({ id: 'main' } as Device);
+			mockLocalStrategy.getMetrics.mockResolvedValue({ success: true, result: mockMetrics as any });
+
+			const result = await deviceService.getMetrics('main');
+
+			expect(mockLocalStrategy.getMetrics).toHaveBeenCalledWith(undefined);
+			expect(result).toEqual(mockMetrics);
+		});
+
+		it('should pass the options to the strategy', async () => {
+			const options = { extra: true };
+			mockDeviceStore.getById.mockResolvedValue({ id: 'remote-1' } as Device);
+			mockRemoteStrategy.getMetrics.mockResolvedValue({ success: true, result: mockMetrics as any });
+
+			await deviceService.getMetrics('remote-1', options);
+
+			expect(mockRemoteStrategy.getMetrics).toHaveBeenCalledWith(options);
+		});
+	});
+
+	// ----------------------------------------
 	// updateDevice
 	// ----------------------------------------
 	describe('updateDevice', () => {

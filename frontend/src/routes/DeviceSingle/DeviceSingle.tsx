@@ -1,5 +1,5 @@
 import { useParams } from 'react-router';
-import { useState } from 'react';
+import { useContext, useState } from 'react';
 import Icon from '../../components/common/Icon/Icon';
 import PageHeader from '../../components/common/PageHeader/PageHeader';
 import { useGetDevice, useGetSystemMetrics } from '../../services/devices';
@@ -9,12 +9,14 @@ import classes from './DeviceSingle.module.scss';
 import NotFound from '../../components/common/NotFound/NotFound';
 import DeviceBackups from '../../components/Device/DeviceBackups/DeviceBackups';
 import { DevicePlan, DeviceStorage } from '../../@types/devices';
+import { ComponentOverrideContext } from '../../context/ComponentOverrideContext';
 
 const DeviceSingle = () => {
    const { id } = useParams();
    const [showEditModal, setShowEditModal] = useState(false);
    const { data, isLoading, error: DeviceError } = useGetDevice(id as string);
    const { data: metricsData } = useGetSystemMetrics(id as string);
+   const DeviceSections = useContext(ComponentOverrideContext)['DeviceSections'];
 
    console.log('DeviceError :', DeviceError, (DeviceError as Error & { status?: number })?.status);
 
@@ -74,6 +76,7 @@ const DeviceSingle = () => {
             ) : (
                <>
                   <DeviceBackups plans={devicePlans} storages={deviceStorages} />
+                  {DeviceSections && <DeviceSections device={device} metrics={metrics} />}
                   {metrics?.system && <DeviceInfo metrics={metrics} isRefetching={false} />}
                </>
             )}

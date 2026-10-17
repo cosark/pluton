@@ -31,6 +31,7 @@ export interface RestoreConfig {
 	replicationId?: string;
 	sources?: string[];
 	fromStorage?: boolean; // Reads the selected files from the live storage for sync plans
+	extra?: Record<string, unknown>; // Opaque edition data, stored in restores.config
 }
 
 export interface RestoreStats {

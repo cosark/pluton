@@ -217,3 +217,10 @@ export type PlanChildItem = Pick<Plan, 'id' | 'title' | 'createdAt' | 'isActive'
 export interface PlanAddRunSettings {
    runNow: boolean;
 }
+
+export type PlanBrowseDeviceResolver = (plan?: unknown) => string | undefined;
+
+export type PlanSourceDisplayResolver = (
+   plan: unknown,
+   options?: { detailed?: boolean }
+) => { icon: string; label: string; name?: string; tooltip?: string; online?: boolean } | undefined;

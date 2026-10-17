@@ -158,14 +158,14 @@ export class DeviceService {
 		return device;
 	}
 
-	async getMetrics(id: string): Promise<DeviceMetrics | null> {
+	async getMetrics(id: string, options?: Record<string, any>): Promise<DeviceMetrics | null> {
 		const device = await this.deviceStore.getById(id);
 		if (!device) {
 			throw new Error('Device not found.');
 		}
 
 		const strategy = this.getSystemStrategy(id);
-		const response = await strategy.getMetrics();
+		const response = await strategy.getMetrics(options);
 		if (!response.success) {
 			throw new Error('Failed to get Device metrics');
 		}

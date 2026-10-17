@@ -27,6 +27,24 @@ describe('BaseRestoreManager', () => {
 			expect(manager).toBeInstanceOf(EventEmitter);
 			expect((manager as any).restoreHandler).toBeInstanceOf(RestoreHandler);
 		});
+
+		it('should use a subclass restoreHandler getter override', async () => {
+			const custom = { execute: jest.fn().mockResolvedValue('custom') };
+			class CustomRestoreManager extends BaseRestoreManager {
+				get restoreHandler(): RestoreHandler {
+					return custom as unknown as RestoreHandler;
+				}
+			}
+			const retryInfo = { attempts: 0, maxAttempts: 1 };
+			const result = await new CustomRestoreManager().performRestoreExecution(
+				'b1',
+				'r1',
+				{} as RestoreOptions,
+				retryInfo
+			);
+			expect(custom.execute).toHaveBeenCalledWith('b1', 'r1', {}, retryInfo);
+			expect(result).toBe('custom');
+		});
 	});
 
 	describe('performRestoreExecution', () => {

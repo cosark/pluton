@@ -40,12 +40,13 @@ export class RestoreStore {
 			updates.status === 'failed' ||
 			updates.status === 'cancelled';
 
+		// A config-only update keeps the recorded end time.
 		const result = await this.db
 			.update(restores)
 			.set({
 				...updates,
 				updatedAt: sql`(unixepoch())`,
-				ended: ended ? sql`(unixepoch())` : null,
+				...('status' in updates ? { ended: ended ? sql`(unixepoch())` : null } : {}),
 			})
 			.where(eq(identifier === 'backupId' ? restores.backupId : restores.id, id))
 			.returning();

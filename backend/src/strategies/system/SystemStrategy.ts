@@ -2,7 +2,7 @@ import { StrategyMethodTypes } from '../../types/strategy';
 import { DeviceSettings, DiscoveredFilesystem } from '../../types/devices';
 
 export interface SystemStrategy {
-	getMetrics(): Promise<{ success: boolean; result: any }>;
+	getMetrics(payload?: any): Promise<{ success: boolean; result: any }>;
 	getVersions(): Promise<{ success: boolean; result: Record<string, string | number> }>;
 	checkDiskSpace(): Promise<{ success: boolean; result: string | Record<string, any> }>;
 	getBrowsePath(

@@ -1,7 +1,8 @@
-import { ReactNode } from 'react';
+import { ReactNode, useContext } from 'react';
 import Icon from '../../common/Icon/Icon';
 import StorageIcon from '../../common/Icon/StorageIcon';
-import { Plan } from '../../../@types/plans';
+import { Plan, PlanSourceDisplayResolver } from '../../../@types/plans';
+import { ComponentOverrideContext } from '../../../context/ComponentOverrideContext';
 import { useGetStorages } from '../../../services/storage';
 import { formatIntervalDisplay, getBackupIconName } from '../../../utils/helpers';
 import PlanHistory from '../PlanHistory/PlanHistory';
@@ -21,6 +22,9 @@ const PlanStats = ({ plan, isSync, lastBackupItem, storageAction }: PlanStatsPro
    const { sourceConfig, storage, storagePath, isActive, settings } = plan;
    const { interval } = settings;
    const isStorageSource = plan.sourceType === 'storage';
+
+   const resolveSourceDisplay = useContext(ComponentOverrideContext)['PlanSourceDisplay'] as unknown as PlanSourceDisplayResolver | undefined;
+   const sourceDisplay = resolveSourceDisplay?.(plan, { detailed: true });
 
    const { data: storageData } = useGetStorages();
    const sourceStorage = isStorageSource
@@ -51,9 +55,26 @@ const PlanStats = ({ plan, isSync, lastBackupItem, storageAction }: PlanStatsPro
                <Icon type={getBackupIconName(plan.method, plan.sourceType)} size={12} /> {isSync ? 'Syncing' : 'Backing Up'}
             </div>
             <div className={classes.sourceContent}>
-               <div data-tooltip-id="htmlToolTip" data-tooltip-place="top" data-tooltip-html={sourceTooltipHTML(sourceConfig)}>
-                  {isStorageSource ? <StorageIcon type={sourceStorage?.type} size={18} /> : <Icon type="folders" size={18} />}
-                  <span>{isStorageSource ? sourceName : `${sourceConfig?.includes.length} Sources`}</span>
+               <div
+                  data-tooltip-id="htmlToolTip"
+                  data-tooltip-place="top"
+                  {...(sourceDisplay
+                     ? { 'data-tooltip-html': sourceDisplay.tooltip || sourceDisplay.label }
+                     : { 'data-tooltip-html': sourceTooltipHTML(sourceConfig) })}
+               >
+                  {sourceDisplay ? (
+                     <div className={classes.sourceIcon}>
+                        <Icon type={sourceDisplay.icon} size={18} />
+                        {sourceDisplay.online !== undefined && (
+                           <i className={`${classes.sourceStatus} ${sourceDisplay.online ? classes.online : ''}`} />
+                        )}
+                     </div>
+                  ) : isStorageSource ? (
+                     <StorageIcon type={sourceStorage?.type} size={18} />
+                  ) : (
+                     <Icon type="folders" size={18} />
+                  )}
+                  <span>{sourceDisplay ? sourceDisplay.name || sourceDisplay.label : isStorageSource ? sourceName : `${sourceConfig?.includes.length} Sources`}</span>
                </div>
                <div
                   data-tooltip-id="htmlToolTip"

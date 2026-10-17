@@ -8,7 +8,7 @@ export class RemoteStrategy implements SystemStrategy {
 		this.deviceId = deviceId;
 	}
 
-	async getMetrics(): Promise<{ success: boolean; result: Record<string, string | number> }> {
+	async getMetrics(payload?: any): Promise<{ success: boolean; result: Record<string, string | number> }> {
 		return await this.publishCommand('GET_METRICS', {});
 	}
 

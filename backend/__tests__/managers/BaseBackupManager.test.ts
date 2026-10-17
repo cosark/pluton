@@ -30,6 +30,11 @@ jest.mock('../../src/utils/rclone/rclone', () => ({
 	runRcloneCommand: (...args: any[]) => (mockRunRcloneCommand as any)(...args),
 }));
 
+const mockCanWriteTargetOrParent = jest.fn().mockResolvedValue(true);
+jest.mock('../../src/utils/linuxHelper', () => ({
+	canWriteTargetOrParent: (...args: any[]) => mockCanWriteTargetOrParent(...args),
+}));
+
 // Mock singleton instance for CronManager
 const mockCronManagerInstance = {
 	scheduleTask: (...args: any[]) => mockScheduleTask(...args),
@@ -447,6 +452,27 @@ describe('BaseBackupManager', () => {
 			expect(res.success).toBe(false);
 			expect(res.result).toMatch(/Could Not Create Restic Repo/);
 			expect(mockScheduleTask).not.toHaveBeenCalled();
+		});
+
+		it('refuses a local destination the service user cannot write, before the repo init', async () => {
+			mockCanWriteTargetOrParent.mockResolvedValueOnce(false);
+			const localOptions = {
+				...baseOptions,
+				storage: { ...baseOptions.storage, type: 'local' },
+				storagePath: '/home/pluton-storage',
+			};
+			const res = await mgr.createBackup('plan-local', localOptions as BackupPlanArgs);
+			expect(res.success).toBe(false);
+			expect(res.result).toMatch(/cannot write to "\/home\/pluton-storage"/);
+			expect(mockCanWriteTargetOrParent).toHaveBeenCalledWith('/home/pluton-storage');
+			expect(mockRunResticCommand).not.toHaveBeenCalled();
+		});
+
+		it('does not check write access for a remote destination', async () => {
+			mockCanWriteTargetOrParent.mockClear();
+			mockRunResticCommand.mockRejectedValueOnce(new Error('init failed'));
+			await mgr.createBackup('plan-abc', baseOptions as BackupPlanArgs);
+			expect(mockCanWriteTargetOrParent).not.toHaveBeenCalled();
 		});
 
 		it('handles encrypted backup creation', async () => {

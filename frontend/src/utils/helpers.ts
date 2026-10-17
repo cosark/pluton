@@ -578,5 +578,8 @@ export const getBackupIconName = (method: string, sourceType?: string): string =
    if (method === 'rescue') {
       return 'rescue';
    }
+   if (method === 'vm') {
+      return 'vm-backup';
+   }
    return 'backup';
 };

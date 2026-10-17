@@ -36,6 +36,7 @@ export interface BackupCompleteEvent {
 	planId: string;
 	success: boolean;
 	summary?: BackupCompletionStats;
+	resolvedSourceConfig?: Record<string, unknown>;
 }
 
 // Event emitted when any error occurs.
@@ -111,6 +112,7 @@ export interface RestoreCompleteEvent {
 	restoreId: string;
 	planId: string;
 	success: boolean;
+	extra?: Record<string, unknown>; // Opaque edition data, merged into restores.config.extra
 }
 
 export interface DownloadStartEvent {

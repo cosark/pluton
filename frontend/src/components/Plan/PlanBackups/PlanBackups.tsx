@@ -35,8 +35,11 @@ const PlanBackups = ({ plan }: PlanBackupsProps) => {
                </button>
             </div>
             {!isSync && historyTab === 'backups' && (
-               <div className={classes.backupsInfo}>
-                  {snapshotsCount} Active Snapshots <i className="pipe">|</i> {formatBytes(stats.size)}
+               <div className={classes.backupsInfo} data-tooltip-id="appTooltip" data-tooltip-content="Backup that can be restored from">
+                  {snapshotsCount} Active Snapshots <i className="pipe">|</i>{' '}
+                  <span className={classes.backupsInfoSize} data-tooltip-id="appTooltip" data-tooltip-content="Actual size on disk of all snapshots">
+                     {formatBytes(stats.size)}
+                  </span>
                </div>
             )}
          </div>

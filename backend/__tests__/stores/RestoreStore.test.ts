@@ -217,6 +217,21 @@ describe('RestoreStore', () => {
 				})
 			);
 		});
+
+		it('should keep the `ended` timestamp when the update has no status', async () => {
+			// Arrange
+			const restoreId = 'restore-2';
+			const updates = { config: { target: '/tmp/x' } as any };
+			mockDb.update().returning.mockResolvedValue([{ ...mockRestores[1], ...updates }]);
+
+			// Act
+			await restoreStore.update(restoreId, updates);
+
+			// Assert
+			const setArg = mockDb.update().set.mock.calls.at(-1)[0];
+			expect(setArg).toEqual(expect.objectContaining({ ...updates, updatedAt: expect.any(Object) }));
+			expect('ended' in setArg).toBe(false);
+		});
 	});
 
 	describe('isRestoreRunning', () => {

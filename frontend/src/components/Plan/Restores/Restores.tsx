@@ -10,6 +10,10 @@ import StatusLabel from '../../common/StatusLabel/StatusLabel';
 import { useDeleteRestore } from '../../../services/restores';
 import BackupEvents from '../BackupEvents/BackupEvents';
 import RestoreChangeViewer from '../../Restore/RestoreChangeViewer/RestoreChangeViewer';
+import { useComponentOverride } from '../../../context/ComponentOverrideContext';
+
+const DefaultRowActions = () => null;
+const DefaultRowMenuActions = () => null;
 
 const Restores = ({
    planId,
@@ -28,6 +32,8 @@ const Restores = ({
    const [previewRestore, setPreviewRestore] = useState<false | RestoreSlim>(false);
    const [showDeleteModal, setShowDeleteModal] = useState<RestoreSlim | false>(false);
    const [showRestoreEvents, setShowRestoreEvents] = useState<false | string>(false);
+   const RowActions = useComponentOverride('RestoreRowActions', DefaultRowActions);
+   const RowMenuActions = useComponentOverride('RestoreRowMenuActions', DefaultRowMenuActions);
    const queryClient = useQueryClient();
    const deleteRestoreMutation = useDeleteRestore();
 
@@ -71,6 +77,9 @@ const Restores = ({
                      >
                         <div className={classes.restoreTitle} onClick={() => !isSync && setShowRestoreEvents(id)}>
                            <Icon type={isSync ? 'sync' : 'box'} size={14} /> {isSync ? 'sync' : 'backup'}-{backupId}
+                           <span className={classes.rowActions} onClick={(e) => e.stopPropagation()}>
+                              <RowActions restore={restore} planId={planId} method={method} />
+                           </span>
                         </div>
                         <div
                            className={classes.status}
@@ -95,6 +104,7 @@ const Restores = ({
                         </div>
                         {showSnapOptions === id && (
                            <div className={classes.settings}>
+                              <RowMenuActions restore={restore} planId={planId} method={method} closeMenu={() => setShowSnapOptions(false)} />
                               <button
                                  onClick={() => {
                                     setPreviewRestore(restore);

@@ -36,7 +36,7 @@ export function runResticCommand(
 	onError?: (data: Buffer) => void,
 	onComplete?: (code: number) => void,
 	onProcess?: (process: any) => void,
-	options?: { timeout?: number; stallTimeout?: number }
+	options?: { timeout?: number; stallTimeout?: number; stdout?: NodeJS.WritableStream }
 ): Promise<string> {
 	let lastProgressTime = 0;
 	const THROTTLE_INTERVAL = 2000; // 2 seconds
@@ -184,9 +184,15 @@ export function runResticCommand(
 			reject(new Error(errorMsg));
 		});
 
+		// Raw stdout (e.g. `restic dump`) goes to the caller's stream with backpressure.
+		if (options?.stdout) {
+			resticProcess.stdout?.pipe(options.stdout);
+		}
+
 		// Handle Restic Output Messages
 		resticProcess.stdout?.on('data', (data: Buffer) => {
 			lastActivity = Date.now();
+			if (options?.stdout) return;
 			const stdoutText = data.toString();
 			if (!isStreaming) {
 				output += stdoutText;

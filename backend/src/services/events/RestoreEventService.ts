@@ -9,6 +9,7 @@ import { SourceTypes } from '../../types/source';
 import { RestoreCompleteEvent, RestoreErrorEvent, RestoreStartEvent } from '../../types/events';
 import { BaseRestoreManager } from '../../managers/BaseRestoreManager';
 import { eventDate } from '../../utils/eventTime';
+import { runRestoreCompleteHooks } from './restoreHooks';
 
 export class RestoreEventService {
 	constructor(
@@ -43,6 +44,7 @@ export class RestoreEventService {
 					includes: config?.includes || [],
 					excludes: config?.excludes || [],
 					delete: config?.delete || false,
+					...(config?.extra ? { extra: config.extra } : {}),
 				},
 				storageId: theBackup.storageId,
 				planId: theBackup.planId,
@@ -184,12 +186,18 @@ export class RestoreEventService {
 				progressData = JSON.parse(await readFile(progressFile, 'utf8'));
 			} catch (error: any) {}
 
-			await this.restoreStore.update(restoreId, {
+			const extra = success ? eventPayload.extra : undefined;
+			const config = extra ? (await this.restoreStore.getById(restoreId))?.config : undefined;
+			const updated = await this.restoreStore.update(restoreId, {
 				status: success ? 'completed' : 'failed',
 				inProgress: false,
 				ended: eventDate((eventPayload as { occurredAt?: number }).occurredAt),
 				completionStats: progressData?.data,
+				...(config && extra ? { config: { ...config, extra: { ...config.extra, ...extra } } } : {}),
 			});
+			if (success && updated) {
+				runRestoreCompleteHooks(updated);
+			}
 
 			// if (existsSync(progressFile)) {
 			// 	await unlink(progressFile);

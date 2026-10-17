@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useContext, useState } from 'react';
 import { toast } from 'react-toastify';
 import { NavLink } from 'react-router';
-import { Plan } from '../../../@types/plans';
+import { Plan, PlanSourceDisplayResolver } from '../../../@types/plans';
+import { ComponentOverrideContext } from '../../../context/ComponentOverrideContext';
 import { formatBytes, formatDateTime, getBackupIconName, timeAgo } from '../../../utils/helpers';
 import Icon from '../../common/Icon/Icon';
 import StorageIcon from '../../common/Icon/StorageIcon';
@@ -37,6 +38,9 @@ const PlanItem = ({ plan, layout = 'list' }: PlanItemProps) => {
 
    const { interval = { type: 'daily', time: '10:00AM' }, encryption = false, compression = false } = settings;
    const [showSettings, setShowSettings] = useState(false);
+
+   const resolveSourceDisplay = useContext(ComponentOverrideContext)['PlanSourceDisplay'] as unknown as PlanSourceDisplayResolver | undefined;
+   const sourceDisplay = resolveSourceDisplay?.(plan);
 
    const isStorageSource = plan.sourceType === 'storage';
    const { data: storageData } = useGetStorages();
@@ -156,9 +160,14 @@ const PlanItem = ({ plan, layout = 'list' }: PlanItemProps) => {
                      <span
                         data-tooltip-id="htmlToolTip"
                         data-tooltip-place="top"
+                        data-tooltip-hidden={!!sourceDisplay}
                         data-tooltip-html={sourceConfig?.includes ? sourceConfig.includes.map((p) => `<div>${p}</div>`).join('') : ''}
                      >
-                        {isStorageSource ? (
+                        {sourceDisplay ? (
+                           <>
+                              <Icon type={sourceDisplay.icon} size={13} /> {sourceDisplay.label}
+                           </>
+                        ) : isStorageSource ? (
                            <>
                               <StorageIcon type={sourceStorage?.type} size={13} /> {sourceStorage?.name}
                            </>
@@ -169,7 +178,7 @@ const PlanItem = ({ plan, layout = 'list' }: PlanItemProps) => {
                               </>
                            )
                         )}
-                        <span className={classes.sourceCount}>{sourceConfig.includes.length}</span>
+                        {!sourceDisplay && <span className={classes.sourceCount}>{sourceConfig.includes.length}</span>}
                      </span>{' '}
                      {'-->'}
                      <PlanStorageInfo replicationSettings={plan.settings.replication} storage={storage} storagePath={plan.storagePath} />

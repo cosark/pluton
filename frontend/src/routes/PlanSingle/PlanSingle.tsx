@@ -19,6 +19,8 @@ import PlanRepair from '../../components/Plan/PlanRepair/PlanRepair';
 import { PlanVerifiedResult } from '../..';
 import { getBackupIconName } from '../../utils';
 
+const DefaultPlanMenuActions = () => null;
+
 const PlanSingle = () => {
    const [showMoreOptions, setShowMoreOptions] = useState(false);
    const [showIntegrityModal, setShowIntegrityModal] = useState(false);
@@ -26,6 +28,7 @@ const PlanSingle = () => {
    const { id } = useParams();
 
    const EditPlanModal = useComponentOverride('EditPlan', EditPlan);
+   const PlanMenuActions = useComponentOverride('PlanMenuActions', DefaultPlanMenuActions);
 
    const [searchParams] = useSearchParams();
    const isBackupPending = searchParams.get('pendingbackup') === '1';
@@ -137,6 +140,7 @@ const PlanSingle = () => {
                                     <Icon size={14} type="unlock" /> Unlock
                                  </li>
                               )}
+                              <PlanMenuActions plan={plan} closeMenu={() => setShowMoreOptions(false)} />
                               <li
                                  className={classes.actionBtn}
                                  onClick={() => {

@@ -1047,6 +1047,27 @@ describe('RestoreHandler', () => {
 			);
 			expect(unlockCall).toBeDefined();
 		});
+
+		it('should pass options.extra into the restore_start config', async () => {
+			const extra = { vm: { mode: 'stream' } };
+			let startConfig: any;
+			emitter.on('restore_start', (data: any) => {
+				startConfig = data.config;
+				setImmediate(() =>
+					emitter.emit('restoreCreated', { backupId: 'backup-1', restoreId: 'restore-1' })
+				);
+			});
+			mockRunResticCommand.mockResolvedValueOnce(
+				JSON.stringify({ message_type: 'summary', total_files: 1, total_bytes: 1 })
+			);
+
+			await handler['preRestorePhase']('plan-1', 'backup-1', 'restore-1', {
+				...baseOptions,
+				extra,
+			});
+
+			expect(startConfig.extra).toEqual(extra);
+		});
 	});
 
 	describe('updateProgress', () => {

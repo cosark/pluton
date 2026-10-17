@@ -187,6 +187,23 @@ describe('RestoreService', () => {
 			expect(result).toEqual({ stats: 'some-stats' });
 		});
 
+		it('should pass restoreConfig.extra to the strategy', async () => {
+			mockBackupStore.getById.mockResolvedValue(mockBackup);
+			mockRestoreStore.isRestoreRunning.mockResolvedValue(false);
+			mockPlanStore.getById.mockResolvedValue({ id: 'plan-1', settings: {} } as any);
+			mockStorageStore.getById.mockResolvedValue(mockStorage);
+			mockRestoreStrategy.getRestoreSnapshotStats.mockResolvedValue({ success: true, result: {} });
+			const extra = { vm: { mode: 'stream' } };
+
+			await restoreService.dryRestoreBackup(backupId, { ...restoreConfig, extra } as any);
+
+			expect(mockRestoreStrategy.getRestoreSnapshotStats).toHaveBeenCalledWith(
+				mockBackup.planId,
+				backupId,
+				expect.objectContaining({ extra })
+			);
+		});
+
 		it('should throw an error if backup is not found', async () => {
 			// Arrange
 			mockBackupStore.getById.mockResolvedValue(null);
@@ -251,6 +268,23 @@ describe('RestoreService', () => {
 			expect(mockRestoreStore.isRestoreRunning).toHaveBeenCalledWith(backupId);
 			expect(mockRestoreStrategy.restoreSnapshot).toHaveBeenCalled();
 			expect(result).toBe('Restore started');
+		});
+
+		it('should pass restoreConfig.extra to the strategy', async () => {
+			mockBackupStore.getById.mockResolvedValue(mockBackup);
+			mockPlanStore.getById.mockResolvedValue(mockPlan);
+			mockRestoreStore.isRestoreRunning.mockResolvedValue(false);
+			mockStorageStore.getById.mockResolvedValue(mockStorage);
+			mockRestoreStrategy.restoreSnapshot.mockResolvedValue({ success: true, result: 'ok' });
+			const extra = { vm: { mode: 'stream' } };
+
+			await restoreService.restoreBackup(backupId, { ...restoreConfig, extra } as any);
+
+			expect(mockRestoreStrategy.restoreSnapshot).toHaveBeenCalledWith(
+				mockBackup.planId,
+				backupId,
+				expect.objectContaining({ extra })
+			);
 		});
 
 		it('should throw an error if the backup is not found', async () => {

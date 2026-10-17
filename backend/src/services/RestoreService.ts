@@ -7,6 +7,7 @@ import { StorageStore } from '../stores/StorageStore';
 import { BaseRestoreManager } from '../managers/BaseRestoreManager';
 import { RestoreConfig, RestoreOptions } from '../types/restores';
 import { normalizeStorageName } from '../utils/helpers';
+import { PlanFull } from '../types/plans';
 
 /**
  * A class for managing restore operations.
@@ -23,6 +24,10 @@ export class RestoreService {
 	getRestoreStrategy(deviceId: string, method: string, sourceType?: string): RestoreStrategy {
 		const isRemote = sourceType !== 'storage' && deviceId !== 'main';
 		return isRemote ? new RemoteStrategy(deviceId) : new LocalStrategy(this.localAgent);
+	}
+
+	getRestoreSources(plan: PlanFull): string[] {
+		return plan.sourceConfig?.includes || [];
 	}
 
 	async getAllRestores() {
@@ -110,7 +115,8 @@ export class RestoreService {
 					excludes: restoreConfig.excludes,
 					replicationId: restoreConfig.replicationId,
 					fromStorage: restoreConfig.fromStorage,
-					sources: plan.sourceConfig?.includes || [],
+					sources: this.getRestoreSources(plan),
+					extra: restoreConfig.extra,
 				}
 			);
 
@@ -173,8 +179,9 @@ export class RestoreService {
 				delete: restoreConfig.delete || false,
 				replicationId: restoreConfig.replicationId,
 				fromStorage: restoreConfig.fromStorage,
-				sources: plan.sourceConfig.includes || [],
+				sources: this.getRestoreSources(plan),
 				performanceSettings,
+				extra: restoreConfig.extra,
 			});
 
 			if (!restoreResult.success) {

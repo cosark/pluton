@@ -362,6 +362,23 @@ const Icon = ({ type, color = 'currentColor', size = 16, title = '', classes = '
                />
             </IconWrapper>
          )}
+         {type === 'container' && (
+            <IconWrapper size={size} viewBox="0 0 24 24">
+               <g fill="none" stroke={color} strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}>
+                  <rect x="2" y="5" width="20" height="14" rx="2" />
+                  <path d="M7 8.5v7m5-7v7m5-7v7" />
+               </g>
+            </IconWrapper>
+         )}
+         {type === 'vm-backup' && (
+            <IconWrapper size={size} viewBox="0 0 27.59 22.69">
+               <path
+                  d="M22,13.65A6,6,0,0,0,10,14a1,1,0,0,1-1,1c-3.62,0-5,2.53-5,4a3.93,3.93,0,0,0,.88,2.59C5.51,22.32,6.71,23,9,23h5.5v2H9c-2.71,0-4.51-.82-5.63-2.09A5.88,5.88,0,0,1,2,19a6.35,6.35,0,0,1,6.06-5.95A8,8,0,0,1,24,13.64a3.49,3.49,0,0,0-2,0m7.19,4.23-6.11-2.72a.66.66,0,0,0-.55,0L16.4,17.88l0,0-.06,0,0,0a.86.86,0,0,0-.13.14l0,0a.54.54,0,0,0-.05.11.14.14,0,0,0,0,.06.57.57,0,0,0,0,.18v6.79a.7.7,0,0,0,.4.63l6.12,2.71a.66.66,0,0,0,.27.06.67.67,0,0,0,.28-.06h0l6.11-2.71a.69.69,0,0,0,.41-.63V18.5a.68.68,0,0,0-.41-.62m-6.39-1.35,4.45,2-4.45,2-.88-.39L18.35,18.5Zm-5.43,8.32v-5.3l4.75,2.11V27ZM23.47,27V21.66l4.76-2.11v5.3Z"
+                  transform="translate(-2 -6)"
+                  fill={color}
+               />
+            </IconWrapper>
+         )}
          {type === 'database' && (
             <IconWrapper size={size} viewBox="0 0 24 24">
                <g fill="none" stroke={color} strokeWidth={1.5}>

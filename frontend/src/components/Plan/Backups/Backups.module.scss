@@ -55,6 +55,14 @@
                color: var(--content-text-color);
             }
          }
+         // Slot for an edition-specific row action inside the title cell.
+         .rowActions {
+            display: inline-flex;
+            align-items: center;
+            vertical-align: middle;
+            margin-left: 6px;
+            cursor: default;
+         }
          .planDescription {
             margin-left: 6px;
             :global(.icon) {
