@@ -41,6 +41,20 @@ export class SettingsService {
 		try {
 			// Validate the plan data using the schema
 			let parsedSettings = { ...settings };
+
+			// The TOTP secret and recovery codes are only written by the 2FA setup and login flows.
+			const storedTotp = (await this.settingsStore.getById(id))?.settings?.totp;
+			if (parsedSettings.totp !== undefined || storedTotp) {
+				const requestedEnabled = parsedSettings.totp
+					? parsedSettings.totp.enabled
+					: storedTotp?.enabled;
+				parsedSettings.totp = {
+					enabled: !!requestedEnabled && !!storedTotp?.secret,
+					secret: storedTotp?.secret || '',
+					recoveryCodes: storedTotp?.recoveryCodes || [],
+				};
+			}
+
 			try {
 				const parsedSettingsEntry = settingsUpdateSchema
 					.partial()
@@ -291,6 +305,28 @@ export class SettingsService {
 
 		// 4. Return the plain-text recovery codes to be shown to the user ONCE
 		return { recoveryCodes };
+	}
+
+	/**
+	 * Checks a 2FA recovery code and removes it on match, so each code works only once.
+	 */
+	public async consumeRecoveryCode(code: string): Promise<boolean> {
+		const appSettings = await this.settingsStore.getFirst();
+		const totp = appSettings?.settings?.totp;
+		if (!appSettings || !totp?.recoveryCodes?.length) {
+			return false;
+		}
+
+		const hashedCode = createHash('sha256').update(code.trim().toUpperCase()).digest('hex');
+		if (!totp.recoveryCodes.includes(hashedCode)) {
+			return false;
+		}
+
+		await this.settingsStore.update(appSettings.id, {
+			...appSettings.settings,
+			totp: { ...totp, recoveryCodes: totp.recoveryCodes.filter(c => c !== hashedCode) },
+		} as AppSettings);
+		return true;
 	}
 
 	async getSelfBackupStatus() {

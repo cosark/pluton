@@ -82,6 +82,7 @@ export interface AppSettings {
 		enabled: boolean;
 		secret: string;
 		recoveryCodes: string[];
+		configured?: boolean;
 	};
 	reporting: {
 		emails: string[];

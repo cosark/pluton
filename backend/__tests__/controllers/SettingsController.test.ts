@@ -95,6 +95,59 @@ describe('SettingsController', () => {
 		});
 	});
 
+	describe('2FA data in responses', () => {
+		const rowWithTotp = () => ({
+			id: 1,
+			settings: {
+				title: 'Pluton',
+				totp: { enabled: true, secret: 'encrypted-secret', recoveryCodes: ['hash1', 'hash2'] },
+			} as any,
+		});
+		const publicTotp = { enabled: true, configured: true };
+
+		it('should not send the TOTP secret or recovery codes from getMainSettings', async () => {
+			mockSettingsService.getMainSettings.mockResolvedValue(rowWithTotp() as any);
+
+			await settingsController.getMainSettings(mockRequest as Request, mockResponse as Response);
+
+			const result = mockJson.mock.calls[0][0].result;
+			expect(result.settings.totp).toEqual(publicTotp);
+			expect(result.settings.title).toBe('Pluton');
+		});
+
+		it('should not send the TOTP secret or recovery codes from getSettings', async () => {
+			mockRequest.params = { id: '1' };
+			mockSettingsService.getSettings.mockResolvedValue(rowWithTotp() as any);
+
+			await settingsController.getSettings(mockRequest as Request, mockResponse as Response);
+
+			expect(mockJson.mock.calls[0][0].result.settings.totp).toEqual(publicTotp);
+		});
+
+		it('should not send the TOTP secret or recovery codes from updateSettings', async () => {
+			mockRequest.params = { id: '1' };
+			mockRequest.body = { settings: { title: 'Pluton' } };
+			mockSettingsService.updateSettings.mockResolvedValue(rowWithTotp() as any);
+
+			await settingsController.updateSettings(mockRequest as Request, mockResponse as Response);
+
+			expect(mockJson.mock.calls[0][0].result.settings.totp).toEqual(publicTotp);
+		});
+
+		it('should report configured false when no secret is saved', async () => {
+			const row = rowWithTotp();
+			row.settings.totp = { enabled: false, secret: '', recoveryCodes: [] };
+			mockSettingsService.getMainSettings.mockResolvedValue(row as any);
+
+			await settingsController.getMainSettings(mockRequest as Request, mockResponse as Response);
+
+			expect(mockJson.mock.calls[0][0].result.settings.totp).toEqual({
+				enabled: false,
+				configured: false,
+			});
+		});
+	});
+
 	describe('getSettings', () => {
 		it('should return 400 if settings ID is missing', async () => {
 			mockRequest.params = {};

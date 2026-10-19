@@ -429,14 +429,12 @@ export async function verifyTwoFactorOTP({ code }: { code: string }) {
 
 export function useVerifyTwoFactorOTP() {
    const navigate = useNavigate();
+   const queryClient = useQueryClient();
    return useMutation({
       mutationFn: verifyTwoFactorOTP,
-      onSuccess: (res) => {
-         console.log('# 2FA verification successful! :', res);
+      onSuccess: () => {
+         queryClient.resetQueries({ queryKey: ['auth'] });
          navigate('/');
-      },
-      onError: (res) => {
-         console.log('# 2FA verification failed! :', res);
       },
    });
 }

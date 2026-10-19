@@ -92,3 +92,13 @@
    border-radius: 5px;
    margin-top: 15px;
 }
+
+.loginBackLink {
+   margin-top: 15px;
+   text-align: center;
+   font-size: 0.75rem;
+   a {
+      color: var(--content-text-color);
+      opacity: 0.8;
+   }
+}

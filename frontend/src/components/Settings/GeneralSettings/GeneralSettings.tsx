@@ -19,7 +19,7 @@ const GeneralSettings = ({ settings, settingsID, onUpdate }: GeneralSettingsProp
    const [show2FASetup, setShow2FASetup] = useState(false);
 
    const { totp } = settings || {};
-   const is2FASetupComplete = totp?.secret;
+   const is2FASetupComplete = totp?.configured;
 
    const update2FASetting = (enabled: boolean) => {
       if (enabled === true && !is2FASetupComplete) {

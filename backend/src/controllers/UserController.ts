@@ -5,10 +5,25 @@ import { Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import { SettingsService } from '../services/SettingsService';
 
+const MAX_TOTP_ATTEMPTS = 5;
+
 export class UserController {
 	constructor(private settingsService: SettingsService) {}
 	async validateUser(req: Request, res: Response): Promise<void> {
 		res.status(200).json({ success: true });
+	}
+
+	private issueAuthCookie(res: Response, userName: string): void {
+		const sessionDuration = configService.config.SESSION_DURATION || 7;
+		const token = jwt.sign({ user: userName }, configService.config.SECRET, {
+			expiresIn: `${sessionDuration}d`,
+		});
+		res.cookie('token', token, {
+			httpOnly: true,
+			sameSite: 'lax',
+			maxAge: sessionDuration * 24 * 60 * 60 * 1000,
+			secure: configService.config.APP_URL?.startsWith('https'),
+		});
 	}
 
 	async loginUser(req: Request, res: Response): Promise<void> {
@@ -21,18 +36,24 @@ export class UserController {
 		const theUserName = configService.config.USER_NAME;
 
 		if (username === theUserName && configService.verifyPassword(password)) {
-			// Express way of setting cookies
-			const sessionDuration = configService.config.SESSION_DURATION || 7;
-			const token = jwt.sign({ user: theUserName }, configService.config.SECRET, {
-				expiresIn: `${sessionDuration}d`,
-			});
-			res.cookie('token', token, {
-				httpOnly: true,
-				sameSite: 'lax',
-				maxAge: sessionDuration * 24 * 60 * 60 * 1000,
-				secure: configService.config.APP_URL?.startsWith('https'),
-			});
+			const appSettings = await this.settingsService.getMainSettings();
+			const totpConfig = appSettings?.settings?.totp;
 
+			if (totpConfig?.enabled && totpConfig.secret) {
+				// Password is correct, but the session token is only issued after the 2FA step.
+				req.session.regenerate(err => {
+					if (err) {
+						res.status(500).json({ success: false, error: 'Could not start login session.' });
+						return;
+					}
+					req.session.pendingTotpUser = theUserName;
+					req.session.totpAttempts = 0;
+					res.status(200).json({ success: true, totpRequired: true, error: null });
+				});
+				return;
+			}
+
+			this.issueAuthCookie(res, theUserName);
 			res.status(200).json({ success: true, error: null });
 			return;
 		}
@@ -44,9 +65,18 @@ export class UserController {
 
 	async verifyTotp(req: Request, res: Response): Promise<void> {
 		const { code } = req.body;
+		const pendingUser = req.session?.pendingTotpUser;
 
-		// 1. Fetch settings to get the secret
-		// This assumes you have access to settingsService
+		if (!pendingUser) {
+			res.status(401).json({ success: false, error: 'Login session expired. Please log in again.' });
+			return;
+		}
+
+		if (!code || typeof code !== 'string') {
+			res.status(400).json({ success: false, error: 'Verification code is missing.' });
+			return;
+		}
+
 		const appSettings = await this.settingsService.getMainSettings();
 		const totpConfig = appSettings?.settings?.totp;
 
@@ -56,48 +86,43 @@ export class UserController {
 		}
 
 		try {
-			// 2. Decrypt the stored secret
 			const cryptr = new Cryptr(configService.config.SECRET);
 			const decryptedSecret = cryptr.decrypt(totpConfig.secret);
 
-			// 3. Re-create the TOTP instance with the exact same parameters
 			const appName = appSettings?.settings?.title || 'Pluton';
-			const userIdentifier = 'admin';
 			const totp = new otpauth.TOTP({
 				issuer: appName,
-				label: userIdentifier,
+				label: 'admin',
 				secret: otpauth.Secret.fromBase32(decryptedSecret),
 				algorithm: 'SHA1',
 				digits: 6,
 				period: 30,
 			});
 
-			// 4. Validate the token
-			const delta = totp.validate({
-				token: code,
-				window: 1, // Allows codes from the previous, current, and next time periods
-			});
+			// window: 1 allows codes from the previous, current, and next time periods
+			const isValidTotp = totp.validate({ token: code.trim(), window: 1 }) !== null;
+			const isValid = isValidTotp || (await this.settingsService.consumeRecoveryCode(code));
 
-			if (delta === null) {
-				// Code is invalid
+			if (!isValid) {
+				const attempts = (req.session.totpAttempts || 0) + 1;
+				if (attempts >= MAX_TOTP_ATTEMPTS) {
+					req.session.destroy(() => {
+						res.status(401).json({
+							success: false,
+							error: 'Too many invalid codes. Please log in again.',
+						});
+					});
+					return;
+				}
+				req.session.totpAttempts = attempts;
 				res.status(401).json({ success: false, error: 'Invalid verification code.' });
 				return;
 			}
 
-			// 5. Code is valid! Proceed with login
-			// (The JWT generation and cookie setting logic from your original loginUser method goes here)
-			const sessionDuration = configService.config.SESSION_DURATION || 7;
-			const token = jwt.sign({ user: 'admin' }, configService.config.SECRET, {
-				expiresIn: `${sessionDuration}d`,
+			req.session.destroy(() => {
+				this.issueAuthCookie(res, pendingUser);
+				res.status(200).json({ success: true, error: null });
 			});
-
-			res.cookie('token', token, {
-				httpOnly: true,
-				sameSite: 'lax',
-				maxAge: sessionDuration * 24 * 60 * 60 * 1000,
-				secure: configService.config.APP_URL?.startsWith('https'),
-			});
-			res.status(200).json({ success: true, error: null });
 		} catch (error) {
 			console.error('Error during 2FA verification:', error);
 			res.status(500).json({ success: false, error: 'An error occurred during verification.' });

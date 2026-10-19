@@ -2,16 +2,27 @@ import { Request, Response } from 'express';
 import { createReadStream } from 'fs';
 import { SettingsService } from '../services/SettingsService';
 import { AppSettings, IntegrationTypes } from '../types/settings';
+import { Settings } from '../db/schema/settings';
 
 export class SettingsController {
 	constructor(protected settingsService: SettingsService) {}
+
+	// The TOTP secret and recovery code hashes must never leave the server.
+	protected toPublicSettings(row: Settings | null) {
+		const totp = row?.settings?.totp;
+		if (!row || !totp) return row;
+		return {
+			...row,
+			settings: { ...row.settings, totp: { enabled: totp.enabled, configured: !!totp.secret } },
+		};
+	}
 
 	async getMainSettings(req: Request, res: Response): Promise<void> {
 		try {
 			const appSettings = await this.settingsService.getMainSettings();
 			res.status(appSettings ? 200 : 404).json({
 				success: true,
-				result: appSettings,
+				result: this.toPublicSettings(appSettings),
 			});
 			return;
 		} catch (error: any) {
@@ -35,7 +46,7 @@ export class SettingsController {
 			const appSettings = await this.settingsService.getSettings(parseInt(req.params.id, 10));
 			res.status(appSettings ? 200 : 404).json({
 				success: true,
-				result: appSettings,
+				result: this.toPublicSettings(appSettings),
 			});
 		} catch (error: any) {
 			res.status(500).json({
@@ -62,7 +73,7 @@ export class SettingsController {
 			);
 			res.status(updatedSettings ? 200 : 404).json({
 				success: true,
-				result: updatedSettings,
+				result: this.toPublicSettings(updatedSettings),
 			});
 			return;
 		} catch (error: any) {

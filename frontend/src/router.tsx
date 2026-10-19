@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router';
 import Plans from './routes/Plans/Plans';
 import Login from './routes/Login/Login';
+import VerifyOtp from './routes/Login/VerifyOtp';
 import Setup from './routes/Setup/Setup';
 import { useAuth } from './services/users';
 import App from './components/App/App/App';
@@ -86,6 +87,14 @@ export function AppRoutes() {
             element={
                <PublicRoute>
                   <Login />
+               </PublicRoute>
+            }
+         />
+         <Route
+            path="login/verify-otp"
+            element={
+               <PublicRoute>
+                  <VerifyOtp />
                </PublicRoute>
             }
          />

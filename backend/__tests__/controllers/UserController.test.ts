@@ -2,8 +2,21 @@ import { Request, Response } from 'express';
 import { UserController } from '../../src/controllers/UserController';
 import { configService } from '../../src/services/ConfigService';
 import jwt from 'jsonwebtoken';
+import Cryptr from 'cryptr';
+import * as otpauth from 'otpauth';
 
 jest.mock('jsonwebtoken');
+
+const TOTP_SECRET = new otpauth.Secret().base32;
+const totpSettings = (enabled = true) => ({
+	id: 1,
+	settings: {
+		title: 'Pluton',
+		totp: { enabled, secret: new Cryptr('test-secret').encrypt(TOTP_SECRET), recoveryCodes: [] },
+	},
+});
+const currentTotpCode = () =>
+	new otpauth.TOTP({ secret: otpauth.Secret.fromBase32(TOTP_SECRET) }).generate();
 
 const mockVerifyPassword = jest.fn();
 const mockHashAndStorePassword = jest.fn();
@@ -29,6 +42,8 @@ describe('UserController', () => {
 	let mockStatus: jest.Mock;
 	let mockCookie: jest.Mock;
 	let mockClearCookie: jest.Mock;
+	let mockSettingsService: { getMainSettings: jest.Mock; consumeRecoveryCode: jest.Mock };
+	let mockSession: Record<string, any>;
 
 	beforeEach(() => {
 		jest.clearAllMocks();
@@ -47,11 +62,20 @@ describe('UserController', () => {
 			clearCookie: mockClearCookie,
 		};
 
+		mockSession = {
+			regenerate: jest.fn((cb: (err?: any) => void) => cb()),
+			destroy: jest.fn((cb: (err?: any) => void) => cb()),
+		};
 		mockRequest = {
 			body: {},
+			session: mockSession as any,
 		};
 
-		userController = new UserController();
+		mockSettingsService = {
+			getMainSettings: jest.fn().mockResolvedValue({ id: 1, settings: {} }),
+			consumeRecoveryCode: jest.fn().mockResolvedValue(false),
+		};
+		userController = new UserController(mockSettingsService as any);
 	});
 
 	describe('validateUser', () => {
@@ -146,6 +170,103 @@ describe('UserController', () => {
 			});
 
 			(configService.config as any).SESSION_DURATION = originalDuration;
+		});
+	});
+
+	describe('loginUser with 2FA enabled', () => {
+		it('should require the 2FA step and not set the token cookie', async () => {
+			mockRequest.body = { username: 'testuser', password: 'testpass' };
+			mockVerifyPassword.mockReturnValue(true);
+			mockSettingsService.getMainSettings.mockResolvedValue(totpSettings());
+
+			await userController.loginUser(mockRequest as Request, mockResponse as Response);
+
+			expect(mockCookie).not.toHaveBeenCalled();
+			expect(mockSession.regenerate).toHaveBeenCalled();
+			expect(mockSession.pendingTotpUser).toBe('testuser');
+			expect(mockStatus).toHaveBeenCalledWith(200);
+			expect(mockJson).toHaveBeenCalledWith({ success: true, totpRequired: true, error: null });
+		});
+
+		it('should log in directly when 2FA is configured but disabled', async () => {
+			mockRequest.body = { username: 'testuser', password: 'testpass' };
+			mockVerifyPassword.mockReturnValue(true);
+			(jwt.sign as jest.Mock).mockReturnValue('mock-token');
+			mockSettingsService.getMainSettings.mockResolvedValue(totpSettings(false));
+
+			await userController.loginUser(mockRequest as Request, mockResponse as Response);
+
+			expect(mockCookie).toHaveBeenCalledWith('token', 'mock-token', expect.any(Object));
+			expect(mockJson).toHaveBeenCalledWith({ success: true, error: null });
+		});
+	});
+
+	describe('verifyTotp', () => {
+		beforeEach(() => {
+			mockSettingsService.getMainSettings.mockResolvedValue(totpSettings());
+			(jwt.sign as jest.Mock).mockReturnValue('mock-token');
+		});
+
+		it('should return 401 without a pending password login', async () => {
+			mockRequest.body = { code: currentTotpCode() };
+
+			await userController.verifyTotp(mockRequest as Request, mockResponse as Response);
+
+			expect(mockStatus).toHaveBeenCalledWith(401);
+			expect(mockCookie).not.toHaveBeenCalled();
+		});
+
+		it('should set the token cookie for a valid TOTP code', async () => {
+			mockSession.pendingTotpUser = 'testuser';
+			mockRequest.body = { code: currentTotpCode() };
+
+			await userController.verifyTotp(mockRequest as Request, mockResponse as Response);
+
+			expect(jwt.sign).toHaveBeenCalledWith({ user: 'testuser' }, 'test-secret', {
+				expiresIn: '7d',
+			});
+			expect(mockCookie).toHaveBeenCalledWith('token', 'mock-token', expect.any(Object));
+			expect(mockSession.destroy).toHaveBeenCalled();
+			expect(mockSettingsService.consumeRecoveryCode).not.toHaveBeenCalled();
+			expect(mockJson).toHaveBeenCalledWith({ success: true, error: null });
+		});
+
+		it('should accept a valid recovery code', async () => {
+			mockSession.pendingTotpUser = 'testuser';
+			mockRequest.body = { code: 'ABCDE12345' };
+			mockSettingsService.consumeRecoveryCode.mockResolvedValue(true);
+
+			await userController.verifyTotp(mockRequest as Request, mockResponse as Response);
+
+			expect(mockSettingsService.consumeRecoveryCode).toHaveBeenCalledWith('ABCDE12345');
+			expect(mockCookie).toHaveBeenCalled();
+		});
+
+		it('should return 401 for an invalid code and count the attempt', async () => {
+			mockSession.pendingTotpUser = 'testuser';
+			mockRequest.body = { code: '000000' };
+
+			await userController.verifyTotp(mockRequest as Request, mockResponse as Response);
+
+			expect(mockStatus).toHaveBeenCalledWith(401);
+			expect(mockCookie).not.toHaveBeenCalled();
+			expect(mockSession.totpAttempts).toBe(1);
+			expect(mockSession.destroy).not.toHaveBeenCalled();
+		});
+
+		it('should end the pending login after too many invalid codes', async () => {
+			mockSession.pendingTotpUser = 'testuser';
+			mockSession.totpAttempts = 4;
+			mockRequest.body = { code: '000000' };
+
+			await userController.verifyTotp(mockRequest as Request, mockResponse as Response);
+
+			expect(mockSession.destroy).toHaveBeenCalled();
+			expect(mockStatus).toHaveBeenCalledWith(401);
+			expect(mockJson).toHaveBeenCalledWith({
+				success: false,
+				error: 'Too many invalid codes. Please log in again.',
+			});
 		});
 	});
 

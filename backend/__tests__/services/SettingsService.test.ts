@@ -125,12 +125,107 @@ describe('SettingsService', () => {
 		// 	);
 		// });
 
+		describe('2FA data', () => {
+			const storedTotp = { enabled: true, secret: 'stored-secret', recoveryCodes: ['hash1'] };
+
+			beforeEach(() => {
+				mockSettingsStore.update.mockImplementation(
+					async (id, settings) => ({ id, settings }) as any
+				);
+			});
+
+			it('should keep the stored secret and recovery codes when the request has fake values', async () => {
+				mockSettingsStore.getById.mockResolvedValue({ id: 1, settings: { totp: storedTotp } } as any);
+
+				await settingsService.updateSettings(settingsId, {
+					title: 'T',
+					totp: { enabled: true, secret: 'attacker-secret', recoveryCodes: ['attacker-hash'] },
+				} as AppSettings);
+
+				expect(mockSettingsStore.update.mock.calls[0][1].totp).toEqual(storedTotp);
+			});
+
+			it('should keep the stored 2FA data when the request has no totp block', async () => {
+				mockSettingsStore.getById.mockResolvedValue({ id: 1, settings: { totp: storedTotp } } as any);
+
+				await settingsService.updateSettings(settingsId, { title: 'T' } as AppSettings);
+
+				expect(mockSettingsStore.update.mock.calls[0][1].totp).toEqual(storedTotp);
+			});
+
+			it('should let the toggle turn 2FA off and on', async () => {
+				mockSettingsStore.getById.mockResolvedValue({ id: 1, settings: { totp: storedTotp } } as any);
+
+				await settingsService.updateSettings(settingsId, {
+					totp: { enabled: false, configured: true },
+				} as any);
+				expect(mockSettingsStore.update.mock.calls[0][1].totp).toEqual({
+					...storedTotp,
+					enabled: false,
+				});
+
+				await settingsService.updateSettings(settingsId, {
+					totp: { enabled: true, configured: true },
+				} as any);
+				expect(mockSettingsStore.update.mock.calls[1][1].totp).toEqual(storedTotp);
+			});
+
+			it('should not enable 2FA when no secret is stored', async () => {
+				mockSettingsStore.getById.mockResolvedValue({ id: 1, settings: {} } as any);
+
+				await settingsService.updateSettings(settingsId, {
+					totp: { enabled: true, secret: 'attacker-secret', recoveryCodes: [] },
+				} as any);
+
+				expect(mockSettingsStore.update.mock.calls[0][1].totp).toEqual({
+					enabled: false,
+					secret: '',
+					recoveryCodes: [],
+				});
+			});
+		});
+
 		it('should throw an AppError if the store fails to update', async () => {
 			mockSettingsStore.update.mockResolvedValue(null);
 
 			await expect(settingsService.updateSettings(settingsId, updateData)).rejects.toThrow(
 				'Failed to update settings'
 			);
+		});
+	});
+
+	// ----------------------------------------
+	// consumeRecoveryCode
+	// ----------------------------------------
+	describe('consumeRecoveryCode', () => {
+		const { createHash } = jest.requireActual('crypto');
+		const hash = (code: string) => createHash('sha256').update(code).digest('hex');
+		const row = () =>
+			({
+				id: 1,
+				settings: {
+					title: 'T',
+					totp: { enabled: true, secret: 's', recoveryCodes: [hash('AAAAA11111'), hash('BBBBB22222')] },
+				},
+			}) as any;
+
+		it('should accept a stored code and remove it', async () => {
+			mockSettingsStore.getFirst.mockResolvedValue(row());
+
+			const result = await settingsService.consumeRecoveryCode(' aaaaa11111 ');
+
+			expect(result).toBe(true);
+			expect(mockSettingsStore.update).toHaveBeenCalledWith(1, {
+				title: 'T',
+				totp: { enabled: true, secret: 's', recoveryCodes: [hash('BBBBB22222')] },
+			});
+		});
+
+		it('should reject an unknown code without updating', async () => {
+			mockSettingsStore.getFirst.mockResolvedValue(row());
+
+			expect(await settingsService.consumeRecoveryCode('CCCCC33333')).toBe(false);
+			expect(mockSettingsStore.update).not.toHaveBeenCalled();
 		});
 	});
 
