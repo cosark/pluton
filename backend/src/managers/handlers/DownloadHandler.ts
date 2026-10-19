@@ -1,7 +1,7 @@
 import { EventEmitter } from 'events';
 import { mkdir, rm, readFile, readdir } from 'fs/promises';
 import path from 'path';
-import { existsSync, createReadStream } from 'fs';
+import { existsSync } from 'fs';
 import { unlink } from 'fs/promises';
 import { runResticCommand } from '../../utils/restic/restic';
 import { generateResticRepoPath } from '../../utils/restic/helpers';
@@ -139,8 +139,7 @@ export class DownloadHandler {
 				throw new Error(DOWNLOAD_NOT_FOUND_ERROR);
 			}
 
-			const fileStream = createReadStream(zipPath);
-			return { fileName, fileStream };
+			return { fileName, filePath: zipPath };
 		} catch (error: any) {
 			throw new Error('Error Getting Downloaded File. ' + error?.message || '');
 		}

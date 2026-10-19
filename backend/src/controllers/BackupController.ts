@@ -14,29 +14,16 @@ export class BackupController {
 		}
 
 		try {
-			const downloadResult = await this.backupService.getBackupDownload(req.params.id);
-			const { fileName, fileStream } = downloadResult;
+			const { fileName, filePath } = await this.backupService.getBackupDownload(req.params.id);
 
-			// Set headers for streaming
-			res.setHeader('Content-Type', 'application/x-tar');
-			res.setHeader('Content-Disposition', `attachment; filename=${fileName}`);
-			res.setHeader('Transfer-Encoding', 'chunked');
-
-			fileStream.on('error', (error: Error) => {
-				if (res.headersSent) {
-					res.destroy(error);
-					return;
-				}
-				res.removeHeader('Content-Disposition');
-				res.removeHeader('Transfer-Encoding');
-				res.status(500).type('json').json({
+			// dotfiles 'allow': send checks every segment of an absolute path (e.g. ~/.pluton)
+			res.download(filePath, fileName, { dotfiles: 'allow' }, (error: any) => {
+				if (!error || res.headersSent) return;
+				res.status(error.statusCode || error.status || 500).json({
 					success: false,
 					error: 'Failed to get Downloaded file. ' + (error.message || ''),
 				});
 			});
-
-			// Pipe the stream directly to response
-			fileStream.pipe(res);
 			return;
 		} catch (error: any) {
 			res.status(error.statusCode || 500).json({

@@ -5,7 +5,6 @@ import path from 'path';
 
 jest.mock('fs', () => ({
 	...jest.requireActual('fs'),
-	createReadStream: jest.fn(() => ({ fake: 'stream' })),
 	existsSync: jest.fn(() => true),
 }));
 
@@ -67,7 +66,10 @@ jest.mock('../../../src/services/ConfigService', () => ({
 	},
 }));
 
-import { DownloadHandler } from '../../../src/managers/handlers/DownloadHandler';
+import {
+	DownloadHandler,
+	DOWNLOAD_NOT_FOUND_ERROR,
+} from '../../../src/managers/handlers/DownloadHandler';
 import { processManager } from '../../../src/managers/ProcessManager';
 import { runResticCommand } from '../../../src/utils/restic/restic';
 import { appPaths } from '../../../src/utils/AppPaths';
@@ -139,11 +141,15 @@ describe('DownloadHandler', () => {
 		expect(res).toBeTruthy();
 	});
 
-	test('get: returns filename and stream', async () => {
+	test('get: returns filename and file path', async () => {
 		const out = await handler.get('plan1', 'backup4');
 		expect(out.fileName).toBe('backup-backup4.tar');
-		expect(fs.createReadStream).toHaveBeenCalled();
-		expect(out.fileStream).toEqual({ fake: 'stream' });
+		expect(out.filePath).toBe(path.join(appPaths.getDownloadsDir(), 'backup-backup4.tar'));
+	});
+
+	test('get: throws when the download file is missing', async () => {
+		(fs.existsSync as jest.Mock).mockReturnValueOnce(false);
+		await expect(handler.get('plan1', 'missing')).rejects.toThrow(DOWNLOAD_NOT_FOUND_ERROR);
 	});
 
 	test('download: emits progress events when restic writes progress', async () => {

@@ -82,6 +82,8 @@ export default defineConfig(({ mode }) => {
             workbox: {
                // This will cache all your assets (JS, CSS, images, fonts)
                globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
+               // Let /api navigations (e.g. file downloads) reach the server, not index.html
+               navigateFallbackDenylist: [/^\/api\//],
             },
 
             // For development testing

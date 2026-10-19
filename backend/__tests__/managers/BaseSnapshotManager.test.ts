@@ -113,9 +113,9 @@ describe('BaseSnapshotManager', () => {
 	});
 
 	describe('getSnapshotDownload', () => {
-		it('should return file stream info from handler', async () => {
+		it('should return file info from handler', async () => {
 			const mgr = new BaseSnapshotManager();
-			const mockResult = { fileName: 'backup-1.tar', fileStream: {} };
+			const mockResult = { fileName: 'backup-1.tar', filePath: '/downloads/backup-1.tar' };
 			downloadHandlerMock.get.mockResolvedValue(mockResult);
 
 			const out = await mgr.getSnapshotDownload('plan-1', 'backup-1');

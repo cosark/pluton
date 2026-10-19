@@ -1,6 +1,5 @@
 import { SnapShotFile } from '../../types/restic';
 import { StrategyMethodTypes } from '../../types/strategy';
-import { ReadStream } from 'fs';
 
 export interface SnapshotStrategy {
 	removeSnapshot(
@@ -29,7 +28,7 @@ export interface SnapshotStrategy {
 	getSnapshotDownload(
 		planId: string,
 		backupId: string
-	): Promise<{ success: boolean; result: string | { fileName: string; fileStream: ReadStream } }>;
+	): Promise<{ success: boolean; result: string | { fileName: string; filePath: string } }>;
 	cancelSnapshotDownload(
 		planId: string,
 		backupId: string

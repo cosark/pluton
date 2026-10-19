@@ -12,7 +12,7 @@ describe('BackupController', () => {
 	let mockJson: jest.Mock;
 	let mockStatus: jest.Mock;
 	let mockSetHeader: jest.Mock;
-	let mockPipe: jest.Mock;
+	let mockDownload: jest.Mock;
 
 	beforeEach(() => {
 		jest.clearAllMocks();
@@ -29,12 +29,13 @@ describe('BackupController', () => {
 		mockJson = jest.fn().mockReturnThis();
 		mockStatus = jest.fn().mockReturnValue({ json: mockJson });
 		mockSetHeader = jest.fn();
-		mockPipe = jest.fn();
+		mockDownload = jest.fn();
 
 		mockResponse = {
 			json: mockJson,
 			status: mockStatus,
 			setHeader: mockSetHeader,
+			download: mockDownload,
 		};
 
 		mockRequest = {
@@ -58,24 +59,61 @@ describe('BackupController', () => {
 			});
 		});
 
-		it('should successfully stream backup download', async () => {
-			const mockFileStream = { pipe: mockPipe, on: jest.fn() };
+		it('should send the backup file with res.download', async () => {
 			mockRequest.params = { id: 'backup-123' };
 			mockBackupService.getBackupDownload.mockResolvedValue({
 				fileName: 'backup.tar',
-				fileStream: mockFileStream as any,
+				filePath: '/downloads/backup.tar',
 			});
 
 			await backupController.getBackupDownload(mockRequest as Request, mockResponse as Response);
 
 			expect(mockBackupService.getBackupDownload).toHaveBeenCalledWith('backup-123');
-			expect(mockSetHeader).toHaveBeenCalledWith('Content-Type', 'application/x-tar');
-			expect(mockSetHeader).toHaveBeenCalledWith(
-				'Content-Disposition',
-				'attachment; filename=backup.tar'
+			expect(mockDownload).toHaveBeenCalledWith(
+				'/downloads/backup.tar',
+				'backup.tar',
+				{ dotfiles: 'allow' },
+				expect.any(Function)
 			);
-			expect(mockSetHeader).toHaveBeenCalledWith('Transfer-Encoding', 'chunked');
-			expect(mockPipe).toHaveBeenCalledWith(mockResponse);
+			expect(mockStatus).not.toHaveBeenCalled();
+		});
+
+		it('should return an error if res.download fails before headers are sent', async () => {
+			mockRequest.params = { id: 'backup-123' };
+			mockBackupService.getBackupDownload.mockResolvedValue({
+				fileName: 'backup.tar',
+				filePath: '/downloads/backup.tar',
+			});
+
+			await backupController.getBackupDownload(mockRequest as Request, mockResponse as Response);
+
+			const callback = mockDownload.mock.calls[0][3];
+			const error: any = new Error('File not found');
+			error.statusCode = 404;
+			callback(error);
+
+			expect(mockStatus).toHaveBeenCalledWith(404);
+			expect(mockJson).toHaveBeenCalledWith({
+				success: false,
+				error: 'Failed to get Downloaded file. File not found',
+			});
+		});
+
+		it('should not send an error if res.download fails after headers are sent', async () => {
+			mockRequest.params = { id: 'backup-123' };
+			mockBackupService.getBackupDownload.mockResolvedValue({
+				fileName: 'backup.tar',
+				filePath: '/downloads/backup.tar',
+			});
+			(mockResponse as any).headersSent = true;
+
+			await backupController.getBackupDownload(mockRequest as Request, mockResponse as Response);
+
+			const callback = mockDownload.mock.calls[0][3];
+			callback(new Error('Connection reset'));
+
+			expect(mockStatus).not.toHaveBeenCalled();
+			expect(mockJson).not.toHaveBeenCalled();
 		});
 
 		it('should return 500 if service throws an error', async () => {

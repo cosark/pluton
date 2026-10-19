@@ -148,9 +148,9 @@ describe('BackupService', () => {
 			method: 'backup',
 		} as any;
 
-		it('should successfully get a backup download stream', async () => {
+		it('should successfully get a backup download file', async () => {
 			// Arrange
-			const mockStreamData = { fileName: 'backup.tar', fileStream: 'stream_object' };
+			const mockStreamData = { fileName: 'backup.tar', filePath: '/downloads/backup.tar' };
 			mockBackupStore.getById.mockResolvedValue(mockBackup);
 			mockSnapshotStrategy.getSnapshotDownload.mockResolvedValue({
 				success: true,

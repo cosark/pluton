@@ -32,44 +32,20 @@ export function useDownloadBackup() {
 
 // Get Download
 export async function getBackupDownload(id: string) {
-   // const header = new Headers({ 'Content-Type': 'application/json', Accept: 'application/json' });
-   const res = await fetch(`${API_URL}/backups/${id}/action/download`, {
-      method: 'GET',
-      credentials: 'include',
-      // headers: header,
-   });
-   // Check if response is ok
+   const url = `${API_URL}/backups/${id}/action/download`;
+   // HEAD pre-check so errors show a toast instead of a failed browser download
+   const res = await fetch(url, { method: 'HEAD', credentials: 'include' });
    if (!res.ok) {
-      const data = await res.json();
-      throw new Error(data.error);
+      throw new Error(res.status === 404 ? 'Download file not found. Please generate the download again.' : 'Download Failed!');
    }
 
-   const filename = res.headers.get('content-disposition')?.split('filename=')[1] || `backup-${id}.tar`;
-
-   // Use streams API
-   const reader = res.body?.getReader();
-   const stream = new ReadableStream({
-      async start(controller) {
-         while (true) {
-            const { done, value } = await reader!.read();
-            if (done) break;
-            controller.enqueue(value);
-         }
-         controller.close();
-         reader!.releaseLock();
-      },
-   });
-
-   // Create download from stream
-   const blob = await new Response(stream).blob();
-   const url = window.URL.createObjectURL(blob);
+   // Native browser download: shows size/progress and does not hold the file in memory
    const link = document.createElement('a');
    link.href = url;
-   link.download = filename;
+   link.download = `backup-${id}.tar`;
    document.body.appendChild(link);
    link.click();
    link.remove();
-   window.URL.revokeObjectURL(url);
 }
 
 export function useGetBackupDownload() {
