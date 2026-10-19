@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import { BaseSnapshotManager } from '../managers/BaseSnapshotManager';
+import { DOWNLOAD_NOT_FOUND_ERROR } from '../managers/handlers/DownloadHandler';
 import { BackupStore } from '../stores/BackupStore';
 import { StorageStore } from '../stores/StorageStore';
 import { RestoreStore } from '../stores/RestoreStore';
@@ -103,6 +104,13 @@ export class BackupService {
 		const strategy = this.getSnapshotStrategy(backupDevice, backup.method);
 		const downloadResult = await strategy.getSnapshotDownload(backup.planId as string, backupId);
 		if (!downloadResult.success) {
+			if (
+				typeof downloadResult.result === 'string' &&
+				downloadResult.result.includes(DOWNLOAD_NOT_FOUND_ERROR)
+			) {
+				await this.backupStore.update(backupId, { download: null });
+				throw new NotFoundError(DOWNLOAD_NOT_FOUND_ERROR);
+			}
 			throw new Error(
 				typeof downloadResult.result === 'string'
 					? downloadResult.result

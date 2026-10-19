@@ -73,13 +73,16 @@ export async function getBackupDownload(id: string) {
 }
 
 export function useGetBackupDownload() {
+   const queryClient = useQueryClient();
    return useMutation({
       mutationFn: getBackupDownload,
       onSuccess: (res) => {
          console.log('# Backup Downloaded! :', res);
       },
-      onError: (res) => {
-         console.log('# Download Failed! :', res);
+      onError: (error) => {
+         console.log('# Download Failed! :', error);
+         toast.error(error.message || 'Download Failed!');
+         queryClient.invalidateQueries({ queryKey: ['plan'] });
       },
    });
 }

@@ -59,7 +59,7 @@ describe('BackupController', () => {
 		});
 
 		it('should successfully stream backup download', async () => {
-			const mockFileStream = { pipe: mockPipe };
+			const mockFileStream = { pipe: mockPipe, on: jest.fn() };
 			mockRequest.params = { id: 'backup-123' };
 			mockBackupService.getBackupDownload.mockResolvedValue({
 				fileName: 'backup.tar',

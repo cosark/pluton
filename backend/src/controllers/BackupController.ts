@@ -22,11 +22,24 @@ export class BackupController {
 			res.setHeader('Content-Disposition', `attachment; filename=${fileName}`);
 			res.setHeader('Transfer-Encoding', 'chunked');
 
+			fileStream.on('error', (error: Error) => {
+				if (res.headersSent) {
+					res.destroy(error);
+					return;
+				}
+				res.removeHeader('Content-Disposition');
+				res.removeHeader('Transfer-Encoding');
+				res.status(500).type('json').json({
+					success: false,
+					error: 'Failed to get Downloaded file. ' + (error.message || ''),
+				});
+			});
+
 			// Pipe the stream directly to response
 			fileStream.pipe(res);
 			return;
 		} catch (error: any) {
-			res.status(500).json({
+			res.status(error.statusCode || 500).json({
 				success: false,
 				error: 'Failed to get Downloaded file. ' + (error.message || ''),
 			});

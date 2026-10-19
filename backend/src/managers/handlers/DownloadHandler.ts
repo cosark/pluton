@@ -10,6 +10,9 @@ import { runCommand } from '../../utils/runCommand';
 import { appPaths } from '../../utils/AppPaths';
 import { configService } from '../../services/ConfigService';
 
+export const DOWNLOAD_NOT_FOUND_ERROR =
+	'Download file not found. Please generate the download again.';
+
 export class DownloadHandler {
 	constructor(private emitter: EventEmitter) {}
 
@@ -131,6 +134,10 @@ export class DownloadHandler {
 			const tempDir = appPaths.getDownloadsDir();
 			const fileName = `backup-${backupId}.tar`;
 			const zipPath = path.join(tempDir, fileName);
+
+			if (!existsSync(zipPath)) {
+				throw new Error(DOWNLOAD_NOT_FOUND_ERROR);
+			}
 
 			const fileStream = createReadStream(zipPath);
 			return { fileName, fileStream };
