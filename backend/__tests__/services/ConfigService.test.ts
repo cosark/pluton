@@ -110,6 +110,15 @@ describe('ConfigService', () => {
 		expect(mockExit).not.toHaveBeenCalled();
 	});
 
+	it('should derive default APP_URL from SERVER_PORT when APP_URL is not set', async () => {
+		process.env = { ...validBaseEnv, NODE_ENV: 'production', SERVER_PORT: '8080' };
+		mockExistsSync.mockReturnValue(false);
+
+		const { configService } = await import('../../src/services/ConfigService');
+
+		expect(configService.config.APP_URL).toBe('http://localhost:8080');
+	});
+
 	it('should load configuration from environment variables', async () => {
 		// Arrange
 		process.env = {

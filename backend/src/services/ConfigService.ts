@@ -12,7 +12,7 @@ const baseConfigSchema = z.object({
 	// General
 	NODE_ENV: z.enum(['development', 'production', 'test']).default('production'),
 	SERVER_PORT: z.coerce.number().int().positive().default(5173),
-	APP_URL: z.string().default('http://localhost:5173'),
+	APP_URL: z.string().optional(),
 	APP_TITLE: z.string().min(1).default('Pluton'),
 	MAX_CONCURRENT_BACKUPS: z.coerce.number().int().positive().default(2),
 	LICENSE_KEY: z.string().optional(),
@@ -70,6 +70,7 @@ const userConfigSchema = baseConfigSchema
 
 // Final config schema for normal operation (requires all sensitive fields)
 const finalConfigSchema = configSchema.extend({
+	APP_URL: z.string(),
 	SECRET: z.string().min(12),
 	APIKEY: z.string().min(12),
 	PASSWORD_HASH: z.string().min(1).optional(),
@@ -184,6 +185,10 @@ class ConfigService {
 		const mergedConfig = {
 			...envConfig,
 			...fileConfig,
+			APP_URL:
+				fileConfig.APP_URL ||
+				envConfig.APP_URL ||
+				`http://localhost:${fileConfig.SERVER_PORT || envConfig.SERVER_PORT || 5173}`,
 			SECRET: secrets.SECRET, // System secrets fill in the gaps
 			APIKEY: secrets.APIKEY,
 			PASSWORD_HASH: passwordHash,
