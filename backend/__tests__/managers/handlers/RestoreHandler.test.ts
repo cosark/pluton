@@ -176,6 +176,8 @@ describe('RestoreHandler', () => {
 		mockCopyFilesNatively.mockResolvedValue(undefined);
 		mockAccess.mockResolvedValue(undefined);
 		mockRm.mockResolvedValue(undefined);
+		// linuxHelper is loaded by setup.ts before the fs/promises mock, so stub the real disk check.
+		jest.spyOn(linuxHelper, 'canWriteTargetOrParent').mockResolvedValue(true);
 
 		process.env.ENCRYPTION_KEY = 'test-key';
 	});
