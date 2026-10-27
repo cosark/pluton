@@ -117,3 +117,8 @@ export interface RestoreSettings {
    replicationId?: string;
    storageId?: string;
 }
+
+// An edition can replace the restore path column for some plan methods through the 'RestoreTargetColumn' override.
+export type RestoreTargetColumnResolver = (
+   method: string,
+) => { title: string; label: (restore: RestoreSlim) => string; tooltip?: (restore: RestoreSlim) => string } | undefined;

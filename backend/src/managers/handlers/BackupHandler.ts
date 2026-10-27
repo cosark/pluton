@@ -163,7 +163,8 @@ export class BackupHandler {
 			// If restic fails with code 10 or 12, retry cannot fix them, so fail immediately
 			const resticExitCode = (error as ResticCommandError)?.code;
 			const classification = classifyResticExitCode(resticExitCode);
-			const isNonRetryable = resticExitCode !== undefined && !classification.retryable;
+			const isNonRetryable =
+				(resticExitCode !== undefined && !classification.retryable) || error?.retryable === false;
 
 			const attemptsExhausted = retryInfo.attempts + 1 >= retryInfo.maxAttempts;
 			const permanentlyFailed = attemptsExhausted || isNonRetryable;
@@ -332,7 +333,7 @@ export class BackupHandler {
 				handlers.onError,
 				handlers.onComplete,
 				process => processManager.trackProcess('backup-' + backupId, process),
-				{ stallTimeout: RESTIC_STALL_TIMEOUT_MS }
+				{ stallTimeout: RESTIC_STALL_TIMEOUT_MS, timeout: runConfig?.timeout }
 			);
 			if (!this.cancelledBackups.has(planId + backupId)) {
 				// Exit code 3: snapshot created with warnings. Log this as a warning

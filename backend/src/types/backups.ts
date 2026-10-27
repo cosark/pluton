@@ -100,4 +100,5 @@ export type BackupRunConfig = {
 	skipDryRun?: boolean;
 	skipPrune?: boolean;
 	ignoreErrors?: boolean;
+	timeout?: number;
 };

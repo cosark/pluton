@@ -1,6 +1,11 @@
 import { EventEmitter } from 'events';
 import { readFile, writeFile } from 'fs/promises';
-import { getBackupPlanStats, getSnapshotByTag, runResticCommand } from '../utils/restic/restic';
+import {
+	getBackupPlanStats,
+	getSnapshotByTag,
+	getSnapshotsByTag,
+	runResticCommand,
+} from '../utils/restic/restic';
 import { generateResticRepoPath, resticPathToWindows } from '../utils/restic/helpers';
 import { DownloadHandler } from './handlers/DownloadHandler';
 import { configService } from '../services/ConfigService';
@@ -118,19 +123,22 @@ export class BaseSnapshotManager extends EventEmitter {
 			}
 			for (const repo of reposToRemove) {
 				const repoPath = generateResticRepoPath(repo.name, repo.path || '');
-				const { success, result } = await getSnapshotByTag('backup-' + backupId, {
+				const snapshots = await getSnapshotsByTag('backup-' + backupId, {
 					storageName: repo.name,
 					storagePath: repo.path,
 					encryption,
-				});
-				if (!success || typeof result === 'string') {
+				}).catch(() => []);
+				if (!snapshots.length) {
 					continue;
 				}
-				const snapshotId = result.id;
+				const snapshotIds = snapshots.map(snap => snap.id);
 
-				const output = await runResticCommand(['-r', repoPath, 'forget', snapshotId, '--json'], {
-					RESTIC_PASSWORD: repoPassword,
-				});
+				const output = await runResticCommand(
+					['-r', repoPath, 'forget', ...snapshotIds, '--json'],
+					{
+						RESTIC_PASSWORD: repoPassword,
+					}
+				);
 				removalOutput[repo.id] = output;
 				const repoStats = await getBackupPlanStats(planId, repo.name, repo.path, encryption);
 				if (repo.id === 'primary') {

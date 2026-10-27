@@ -16,6 +16,7 @@ jest.mock('../../src/managers/handlers/DownloadHandler', () => {
 jest.mock('../../src/utils/restic/restic', () => ({
 	runResticCommand: jest.fn(),
 	getSnapshotByTag: jest.fn(),
+	getSnapshotsByTag: jest.fn(),
 	getBackupPlanStats: jest.fn(),
 }));
 
@@ -41,6 +42,7 @@ jest.mock('fs/promises', () => ({
 import {
 	runResticCommand,
 	getSnapshotByTag,
+	getSnapshotsByTag,
 	getBackupPlanStats,
 } from '../../src/utils/restic/restic';
 import { generateResticRepoPath, resticPathToWindows } from '../../src/utils/restic/helpers';
@@ -145,10 +147,7 @@ describe('BaseSnapshotManager', () => {
 		};
 
 		it('should forget snapshot and return updated stats', async () => {
-			(getSnapshotByTag as jest.Mock).mockResolvedValue({
-				success: true,
-				result: { id: 'snap-abc' },
-			});
+			(getSnapshotsByTag as jest.Mock).mockResolvedValue([{ id: 'snap-abc' }]);
 			(runResticCommand as jest.Mock).mockResolvedValue('forget-ok');
 			(getBackupPlanStats as jest.Mock).mockResolvedValue({
 				total_size: 123,
@@ -171,17 +170,43 @@ describe('BaseSnapshotManager', () => {
 			});
 		});
 
+		it('should forget all snapshots of the backup in one command', async () => {
+			(getSnapshotsByTag as jest.Mock).mockResolvedValue([{ id: 'snap-a' }, { id: 'snap-b' }]);
+			(runResticCommand as jest.Mock).mockResolvedValue('forget-ok');
+			(getBackupPlanStats as jest.Mock).mockResolvedValue(null);
+
+			const mgr = new BaseSnapshotManager();
+			await mgr.removeSnapshot('plan-1', 'backup-1', options);
+
+			expect(runResticCommand).toHaveBeenCalledTimes(1);
+			expect(runResticCommand).toHaveBeenCalledWith(
+				['-r', 'mock-repo-path', 'forget', 'snap-a', 'snap-b', '--json'],
+				{ RESTIC_PASSWORD: 'mySecretKey' }
+			);
+		});
+
 		it('should return early when snapshot not found', async () => {
-			(getSnapshotByTag as jest.Mock).mockResolvedValue({
-				success: false,
-				result: 'Snapshot Not Found',
-			});
+			(getSnapshotsByTag as jest.Mock).mockResolvedValue([]);
 
 			const mgr = new BaseSnapshotManager();
 			const out = await mgr.removeSnapshot('plan-1', 'backup-1', options);
 
 			// When snapshot is not found, the loop continues (doesn't throw)
 			// Result will be success with empty output
+			expect(out).toEqual({
+				success: true,
+				result: {},
+				stats: { primary: null, mirrors: {} },
+			});
+		});
+
+		it('should skip the repo when the snapshot lookup fails', async () => {
+			(getSnapshotsByTag as jest.Mock).mockRejectedValue(new Error('repo locked'));
+
+			const mgr = new BaseSnapshotManager();
+			const out = await mgr.removeSnapshot('plan-1', 'backup-1', options);
+
+			expect(runResticCommand).not.toHaveBeenCalled();
 			expect(out).toEqual({
 				success: true,
 				result: {},

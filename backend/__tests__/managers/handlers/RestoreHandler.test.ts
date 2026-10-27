@@ -286,7 +286,7 @@ describe('RestoreHandler', () => {
 		});
 
 		it('should handle cancellation during execution', async () => {
-			handler['cancelledRestores'].add('plan-1');
+			handler['cancelledRestores'].add('restore-1');
 
 			mockGetSnapshotByTag.mockResolvedValueOnce({
 				success: true,
@@ -316,8 +316,40 @@ describe('RestoreHandler', () => {
 			});
 
 			expect(result).toBe('');
-			handler['cancelledRestores'].delete('plan-1');
+			handler['cancelledRestores'].delete('restore-1');
 		}, 15000);
+
+		it('should run a new restore of a plan after a cancel of a restore that was not running', async () => {
+			await handler.cancel('plan-1', 'restore-old');
+
+			mockRunResticCommand
+				.mockResolvedValueOnce(
+					JSON.stringify({
+						message_type: 'summary',
+						total_files: 10,
+						files_restored: 10,
+						total_bytes: 1000,
+						bytes_restored: 1000,
+					})
+				)
+				.mockResolvedValueOnce('restore complete');
+			setTimeout(() => {
+				emitter.emit('restoreCreated', { backupId: 'backup-1', restoreId: 'restore-1' });
+			}, 10);
+
+			await handler.execute('backup-1', 'restore-1', baseOptions, { attempts: 0, maxAttempts: 3 });
+
+			expect(mockUpdateAction).toHaveBeenCalledWith(
+				'plan-1',
+				'restore-1',
+				'restore',
+				'RESTORE_OPERATION_START',
+				false,
+				undefined
+			);
+			expect(mockMarkCompleted).toHaveBeenCalledWith('plan-1', 'restore-1', true);
+			handler['cancelledRestores'].delete('restore-old');
+		});
 
 		it('should emit error event and schedule retry on non-final failure', async () => {
 			const errorListener = jest.fn();
@@ -383,6 +415,37 @@ describe('RestoreHandler', () => {
 				false,
 				'Fatal error',
 				true
+			);
+		});
+
+		it('should permanently fail (no retry) when the error is flagged retryable:false', async () => {
+			emitter.on('restoreCreated', () => {});
+			setTimeout(() => {
+				emitter.emit('restoreCreated', { backupId: 'backup-1', restoreId: 'restore-1' });
+			}, 10);
+
+			mockGetSnapshotByTag.mockRejectedValueOnce(
+				Object.assign(new Error('Target version too old'), { retryable: false })
+			);
+
+			await expect(
+				handler.execute('backup-1', 'restore-1', baseOptions, { attempts: 0, maxAttempts: 3 })
+			).rejects.toMatchObject({ retryable: false });
+
+			expect(mockMarkCompleted).toHaveBeenCalledWith(
+				'plan-1',
+				'restore-1',
+				false,
+				'Target version too old',
+				true
+			);
+			expect(mockUpdateAction).not.toHaveBeenCalledWith(
+				'plan-1',
+				'restore-1',
+				'retry',
+				expect.stringContaining('RESTORE_RETRY'),
+				false,
+				undefined
 			);
 		});
 
@@ -467,7 +530,7 @@ describe('RestoreHandler', () => {
 
 		// statfs reports free bytes as bavail * bsize; use bsize = 1 so bavail is the byte count.
 		const statfsWithAvailable = (available: number) =>
-			({ bsize: 1, bavail: available, blocks: 10 * GiB, bfree: available } as any);
+			({ bsize: 1, bavail: available, blocks: 10 * GiB, bfree: available }) as any;
 
 		const stats = { total_bytes: 500 * 1024 * 1024, bytes_restored: 500 * 1024 * 1024 };
 

@@ -1,16 +1,16 @@
-import { useState } from 'react';
+import { useContext, useState } from 'react';
 import { toast } from 'react-toastify';
 import { useQueryClient } from '@tanstack/react-query';
 import Icon from '../../common/Icon/Icon';
 import ActionModal from '../../common/ActionModal/ActionModal';
-import { RestoreSlim } from '../../../@types/restores';
+import { RestoreSlim, RestoreTargetColumnResolver } from '../../../@types/restores';
 import { formatBytes, formatDateTime, formatDuration, formatNumberToK, timeAgo } from '../../../utils/helpers';
 import classes from '../Backups/Backups.module.scss';
 import StatusLabel from '../../common/StatusLabel/StatusLabel';
 import { useDeleteRestore } from '../../../services/restores';
 import BackupEvents from '../BackupEvents/BackupEvents';
 import RestoreChangeViewer from '../../Restore/RestoreChangeViewer/RestoreChangeViewer';
-import { useComponentOverride } from '../../../context/ComponentOverrideContext';
+import { ComponentOverrideContext, useComponentOverride } from '../../../context/ComponentOverrideContext';
 
 const DefaultRowActions = () => null;
 const DefaultRowMenuActions = () => null;
@@ -34,6 +34,8 @@ const Restores = ({
    const [showRestoreEvents, setShowRestoreEvents] = useState<false | string>(false);
    const RowActions = useComponentOverride('RestoreRowActions', DefaultRowActions);
    const RowMenuActions = useComponentOverride('RestoreRowMenuActions', DefaultRowMenuActions);
+   const resolveTargetColumn = useContext(ComponentOverrideContext)['RestoreTargetColumn'] as unknown as RestoreTargetColumnResolver | undefined;
+   const targetColumn = resolveTargetColumn?.(method);
    const queryClient = useQueryClient();
    const deleteRestoreMutation = useDeleteRestore();
 
@@ -59,7 +61,7 @@ const Restores = ({
             <div>Restored Backup</div>
             <div>Status</div>
             <div>Duration</div>
-            <div>Restore Path</div>
+            <div>{targetColumn?.title || 'Restore Path'}</div>
             <div>Files</div>
             <div>Date</div>
             <div></div>
@@ -90,8 +92,13 @@ const Restores = ({
                            <StatusLabel status={status} hasError={!!errorMsg} />
                         </div>
                         <div title={duration + 's'}>{formatDuration(duration)}</div>
-                        <div className={classes.target} data-tooltip-id="htmlToolTip" data-tooltip-html={`${config.target}`}>
-                           {config.target || 'Original'}
+                        <div
+                           className={classes.target}
+                           data-tooltip-id="htmlToolTip"
+                           data-tooltip-html={targetColumn ? targetColumn.tooltip?.(restore) : `${config.target}`}
+                           data-tooltip-hidden={!!targetColumn && !targetColumn.tooltip}
+                        >
+                           {targetColumn ? targetColumn.label(restore) : config.target || 'Original'}
                         </div>
                         <div data-tooltip-id="" data-tooltip-html={formatBytes(taskStats?.bytes_restored || 0)}>
                            {formatNumberToK(taskStats?.files_restored || 0)}

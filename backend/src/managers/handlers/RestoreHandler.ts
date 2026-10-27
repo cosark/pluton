@@ -101,13 +101,13 @@ export class RestoreHandler {
 		try {
 			// --- 1. PRE-RESTORE PHASE ---
 			const snapshot = await this.preRestorePhase(planId, backupId, restoreId, options);
-			if (this.cancelledRestores.has(planId)) {
+			if (this.cancelledRestores.has(restoreId)) {
 				throw new Error('RESTORE_CANCELLED: Restore was cancelled');
 			}
 
 			// --- 2. RESTORE PHASE ---
 			const result = await this.executeRestorePhase(planId, backupId, restoreId, snapshot, options);
-			if (this.cancelledRestores.has(planId)) {
+			if (this.cancelledRestores.has(restoreId)) {
 				throw new Error('RESTORE_CANCELLED: Restore was cancelled');
 			}
 
@@ -129,7 +129,8 @@ export class RestoreHandler {
 			}
 
 			// --- 4. CENTRALIZED ERROR HANDLING ---
-			const permanentlyFailed = retryInfo.attempts + 1 >= retryInfo.maxAttempts;
+			const isNonRetryable = error?.retryable === false;
+			const permanentlyFailed = retryInfo.attempts + 1 >= retryInfo.maxAttempts || isNonRetryable;
 
 			await this.progressManager.markCompleted(
 				planId,
@@ -166,10 +167,12 @@ export class RestoreHandler {
 			await this.afterRestore(planId, restoreId, options);
 
 			// Re-throw the error for the JobProcessor to handle retries.
-			throw new Error(errorMessage);
+			const rethrown: Error & { retryable?: boolean } = new Error(errorMessage);
+			rethrown.retryable = !isNonRetryable;
+			throw rethrown;
 		} finally {
 			this.runningRestores.delete(planId);
-			this.cancelledRestores.delete(planId);
+			this.cancelledRestores.delete(restoreId);
 		}
 	}
 
@@ -700,7 +703,7 @@ export class RestoreHandler {
 	}
 
 	async cancel(planId: string, restoreId: string) {
-		this.cancelledRestores.add(planId);
+		this.cancelledRestores.add(restoreId);
 		await this.progressManager.markCompleted(
 			planId,
 			restoreId,

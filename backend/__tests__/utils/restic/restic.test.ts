@@ -29,6 +29,7 @@ import {
 	runResticCommand,
 	getBackupPlanStats,
 	getSnapshotByTag,
+	getSnapshotsByTag,
 	handleResticCheckResult,
 } from '../../../src/utils/restic/restic';
 import { getBinaryPath } from '../../../src/utils/binaryPathResolver';
@@ -559,6 +560,29 @@ describe('runResticCommand', () => {
 			mockProcess.emit('close', 0);
 			await expect(promise).resolves.toBeDefined();
 			expect(mockKillProcessTree).not.toHaveBeenCalled();
+		});
+	});
+
+	describe('timeout', () => {
+		beforeEach(() => jest.useFakeTimers());
+		afterEach(() => jest.useRealTimers());
+
+		it('kills the process tree with SIGKILL and rejects with timedOut', async () => {
+			const promise = runResticCommand(
+				['backup', '/test'],
+				undefined,
+				jest.fn(),
+				undefined,
+				undefined,
+				undefined,
+				{ timeout: 5_000 }
+			);
+			const settled = expect(promise).rejects.toMatchObject({ timedOut: true });
+
+			await jest.advanceTimersByTimeAsync(5_000);
+
+			await settled;
+			expect(mockKillProcessTree).toHaveBeenCalledWith(mockProcess, 'SIGKILL');
 		});
 	});
 });
@@ -1107,6 +1131,47 @@ describe('getSnapshotByTag', () => {
 		});
 
 		expect(mockGenerateResticRepoPath).toHaveBeenCalledWith('custom-storage', 'custom-path');
+	});
+
+	describe('getSnapshotsByTag', () => {
+		const mockOutput = (output: string, code = 0) => {
+			const captured: { args?: string[] } = {};
+			mockSpawn.mockImplementation((binary, args) => {
+				captured.args = args as string[];
+				const process = new EventEmitter() as any;
+				process.stdout = new EventEmitter();
+				process.stderr = new EventEmitter();
+				process.kill = jest.fn();
+				setImmediate(() => {
+					if (code === 0) process.stdout.emit('data', Buffer.from(output));
+					else process.stderr.emit('data', Buffer.from(output));
+					process.emit('close', code);
+				});
+				return process;
+			});
+			return captured;
+		};
+		const opts = { storagePath: 'path', storageName: 'storage', encryption: false };
+
+		it('returns all snapshots with an id and passes the tag list as is', async () => {
+			const captured = mockOutput(JSON.stringify([{ id: 'a' }, { tags: ['x'] }, { id: 'b' }]));
+
+			const result = await getSnapshotsByTag('backup-1,db-main', opts);
+
+			expect(result.map(s => s.id)).toEqual(['a', 'b']);
+			const tagIdx = captured.args!.indexOf('--tag');
+			expect(captured.args![tagIdx + 1]).toBe('backup-1,db-main');
+		});
+
+		it('returns an empty array when no snapshot matches', async () => {
+			mockOutput('[]');
+			await expect(getSnapshotsByTag('tag', opts)).resolves.toEqual([]);
+		});
+
+		it('rejects when restic fails', async () => {
+			mockOutput('repository not found', 1);
+			await expect(getSnapshotsByTag('tag', opts)).rejects.toThrow();
+		});
 	});
 });
 

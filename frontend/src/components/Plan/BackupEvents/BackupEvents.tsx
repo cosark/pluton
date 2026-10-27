@@ -1,6 +1,6 @@
 import Icon from '../../common/Icon/Icon';
 import SidePanel from '../../common/SidePanel/SidePanel';
-import { getBackupEventActionMessage, getRestoreEventActionMessage } from '../../../utils/progressHelpers';
+import { getBackupEventActionMessage, getRestoreEventActionMessage, isWarningAction } from '../../../utils/progressHelpers';
 import classes from './BackupEvents.module.scss';
 import { BackupProgressData, ReplicationProgressData } from '../../../@types/backups';
 import { useGetBackupProgressOnce } from '../../../services/backups';
@@ -75,11 +75,7 @@ const BackupEvents = ({ id, type = 'backup', sourceId, sourceType, planId, inPro
                      const failed = event.phase === 'finished' && event.action === 'FAILED_PERMANENTLY';
                      const retrying = event.action.includes('RETRY_ATTEMPT_');
                      const isError = event.action === 'TASK_FAILED';
-                     const isWarning =
-                        event.action === 'BACKUP_WARNING' ||
-                        event.action === 'RESTORE_WARNING' ||
-                        event.action === 'POST_BACKUP_PRUNE_FAILED' ||
-                        event.action === 'POST_BACKUP_REPO_STATS_FAILED';
+                     const isWarning = isWarningAction(event.action);
                      return (
                         <li
                            key={index}
@@ -98,7 +94,7 @@ const BackupEvents = ({ id, type = 'backup', sourceId, sourceType, planId, inPro
                               {type === 'backup' ? getBackupEventActionMessage(event.action) : getRestoreEventActionMessage(event.action)}
                               {event.error && (
                                  <span className={classes.viewError} onClick={() => setShowError(`main-${index}`)}>
-                                    View Error
+                                    View Details
                                  </span>
                               )}
                            </span>
@@ -137,7 +133,7 @@ const BackupEvents = ({ id, type = 'backup', sourceId, sourceType, planId, inPro
                                           {getBackupEventActionMessage(event.action, mirror.storageName)}
                                           {event.error && (
                                              <span className={classes.viewError} onClick={() => setShowError(`mirror-${storageId}-${index}`)}>
-                                                View Error
+                                                View Details
                                              </span>
                                           )}
                                        </span>

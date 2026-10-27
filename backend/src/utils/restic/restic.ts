@@ -130,12 +130,8 @@ export function runResticCommand(
 			timeoutHandle = setTimeout(() => {
 				timedOut = true;
 				// SIGKILL rather than SIGTERM: a wedged rclone transport may not
-				// respond to a graceful signal.
-				try {
-					resticProcess.kill('SIGKILL');
-				} catch {
-					// Process may have already exited.
-				}
+				// respond to a graceful signal. The tree: a stdin command of restic also stops.
+				killProcessTree(resticProcess as KillableProcess, 'SIGKILL');
 				const timeoutError: ResticCommandError = new Error(
 					`Restic command timed out after ${timeoutMs}ms`
 				);
@@ -367,34 +363,32 @@ export async function getBackupPlanStats(
 	}
 }
 
+/**
+ * Lists all snapshots with the tag. A comma-separated tag ('a,b') matches
+ * snapshots that have all of the tags. Throws when restic fails.
+ */
+export async function getSnapshotsByTag(
+	tag: string,
+	options: { storagePath: string; storageName: string; encryption: boolean }
+): Promise<ResticSnapshot[]> {
+	const { storageName, storagePath, encryption } = options;
+	const repoPassword = encryption ? configService.config.ENCRYPTION_KEY : '';
+	const repoPath = generateResticRepoPath(storageName, storagePath);
+	const snapRes = await runResticCommand(['-r', repoPath, 'snapshots', '--tag', tag, '--json'], {
+		RESTIC_PASSWORD: repoPassword,
+	});
+	const snapResArr = snapRes ? JSON.parse(snapRes) : [];
+	return Array.isArray(snapResArr) ? snapResArr.filter(snap => snap?.id) : [];
+}
+
 export async function getSnapshotByTag(
 	tag: string,
 	options: { storagePath: string; storageName: string; encryption: boolean }
 ): Promise<{ success: boolean; result: ResticSnapshot | string }> {
-	const { storageName, storagePath, encryption } = options;
-	const repoPassword = encryption ? configService.config.ENCRYPTION_KEY : '';
-	const repoPath = generateResticRepoPath(storageName, storagePath);
 	const failedObj = { success: false, result: 'Snapshot Not Found' };
 	try {
-		const snapshotResticArgs = ['-r', repoPath, 'snapshots', '--tag', tag, '--json'];
-		const snapRes = await runResticCommand(snapshotResticArgs, {
-			RESTIC_PASSWORD: repoPassword,
-		});
-
-		if (snapRes) {
-			const snapResArr = JSON.parse(snapRes);
-			if (Array.isArray(snapResArr) && snapResArr[0] && snapResArr[0].id) {
-				const snapshot: ResticSnapshot = snapResArr[0];
-				return {
-					success: true,
-					result: snapshot,
-				};
-			} else {
-				return failedObj;
-			}
-		} else {
-			return failedObj;
-		}
+		const [snapshot] = await getSnapshotsByTag(tag, options);
+		return snapshot ? { success: true, result: snapshot } : failedObj;
 	} catch (error: any) {
 		return {
 			...failedObj,

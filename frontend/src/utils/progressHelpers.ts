@@ -16,6 +16,15 @@ export const registerPhaseDisplayNames = (names: Record<string, string>): void =
    Object.assign(registeredPhaseNames, names);
 };
 
+// Actions that the event list shows as warnings, not as errors
+const warningActions = new Set(['BACKUP_WARNING', 'RESTORE_WARNING', 'POST_BACKUP_PRUNE_FAILED', 'POST_BACKUP_REPO_STATS_FAILED']);
+
+export const registerWarningActions = (actions: string[]): void => {
+   actions.forEach((action) => warningActions.add(action));
+};
+
+export const isWarningAction = (action: string): boolean => warningActions.has(action);
+
 // Turn an unmapped action code (e.g. SOME_ACTION_START) into readable text
 const humanizeAction = (action: string): string =>
    action

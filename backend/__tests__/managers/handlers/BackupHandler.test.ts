@@ -340,12 +340,46 @@ describe('BackupHandler', () => {
 			);
 		});
 
+		it('should permanently fail (no retry) when the error is flagged retryable:false', async () => {
+			mockRunResticCommand.mockImplementation((args: string[]) => {
+				const isBackup = args[0] === 'backup' && !args.includes('--dry-run');
+				if (isBackup) {
+					return Promise.reject(
+						Object.assign(new Error('server version not supported'), { retryable: false })
+					);
+				}
+				return Promise.resolve('{"message_type":"summary"}');
+			});
+
+			await expect(
+				handler.execute('plan-1', 'backup-1', baseOptions, { attempts: 0, maxAttempts: 5 })
+			).rejects.toMatchObject({ retryable: false });
+
+			expect(mockMarkCompleted).toHaveBeenCalledWith(
+				'plan-1',
+				'backup-1',
+				false,
+				expect.stringContaining('server version not supported'),
+				true
+			);
+			expect(mockUpdateAction).not.toHaveBeenCalledWith(
+				'plan-1',
+				'backup-1',
+				'retry',
+				expect.stringContaining('BACKUP_RETRY'),
+				false,
+				undefined
+			);
+		});
+
 		it('should schedule a retry when backup exits with a retryable code', async () => {
 			// The actual backup rejects with lock-failed (11) - transient, should retry.
 			mockRunResticCommand.mockImplementation((args: string[]) => {
 				const isBackup = args[0] === 'backup' && !args.includes('--dry-run');
 				if (isBackup) {
-					return Promise.reject(Object.assign(new Error('unable to lock repository'), { code: 11 }));
+					return Promise.reject(
+						Object.assign(new Error('unable to lock repository'), { code: 11 })
+					);
 				}
 				return Promise.resolve('{"message_type":"summary"}');
 			});
@@ -776,7 +810,7 @@ describe('BackupHandler', () => {
 
 		// statfs reports free bytes as bavail * bsize; use bsize = 1 so bavail is the byte count.
 		const statfsWithAvailable = (available: number) =>
-			({ bsize: 1, bavail: available, blocks: 10 * GiB, bfree: available } as any);
+			({ bsize: 1, bavail: available, blocks: 10 * GiB, bfree: available }) as any;
 
 		let statfsSpy: jest.SpyInstance;
 
@@ -823,9 +857,9 @@ describe('BackupHandler', () => {
 			statfsSpy.mockResolvedValue(statfsWithAvailable(100 * 1024 * 1024));
 
 			const resticArgsAndEnv = handler.createResticBackupArgs('plan-1', localOptions as any);
-			await expect(
-				handler.canRun(localOptions, resticArgsAndEnv, dryRun)
-			).rejects.toMatchObject({ retryable: false });
+			await expect(handler.canRun(localOptions, resticArgsAndEnv, dryRun)).rejects.toMatchObject({
+				retryable: false,
+			});
 		});
 
 		it('passes when space is sufficient', async () => {
@@ -984,6 +1018,17 @@ describe('BackupHandler', () => {
 			);
 
 			expect(mockTrackProcess).toHaveBeenCalledWith('backup-backup-1', mockProcess);
+		});
+
+		it('passes the timeout of the run config to restic', async () => {
+			const resticArgsAndEnv = handler.createResticBackupArgs('plan-1', baseOptions as any);
+			await handler['executeBackupPhase']('plan-1', 'backup-1', baseOptions, resticArgsAndEnv, {
+				timeout: 60_000,
+			});
+
+			expect(mockRunResticCommand.mock.calls.at(-1)?.[6]).toEqual(
+				expect.objectContaining({ stallTimeout: expect.any(Number), timeout: 60_000 })
+			);
 		});
 
 		it('should use encryption key when encryption is enabled', async () => {
