@@ -314,7 +314,7 @@ describe('providers setup()', () => {
 	});
 
 	describe('swift', () => {
-		const creds = { user: 'u', key: 'k', authUrl: 'https://auth', tenant: 't' };
+		const creds = { user: 'u', key: 'k', auth: 'https://auth', tenant: 't' };
 		const args = ['user', 'u', 'key', 'k', 'auth', 'https://auth', 'tenant', 't'];
 
 		it('sends auth_token when set', () => {
@@ -327,6 +327,42 @@ describe('providers setup()', () => {
 
 		it('omits auth_token when blank', () => {
 			expect(providers.swift.setup({ ...creds, auth_token: '' })).toEqual(args);
+		});
+
+		it('omits tenant when blank', () => {
+			const result = providers.swift.setup({ ...creds, tenant: '' }) as string[];
+
+			expect(result).toEqual(['user', 'u', 'key', 'k', 'auth', 'https://auth']);
+			expect(result).not.toContain(undefined);
+		});
+
+		it('password: sends storage_url when set', () => {
+			expect(
+				providers.swift.setup({ ...creds, storage_url: 'https://store' }, 'password')
+			).toEqual([...args, 'storage_url', 'https://store']);
+		});
+
+		it.each(['user', 'key', 'auth'])('password: returns false without %s', key => {
+			expect(providers.swift.setup({ ...creds, [key]: '' }, 'password')).toBe(false);
+		});
+
+		it('client: sends only auth_token and storage_url', () => {
+			expect(
+				providers.swift.setup(
+					{ ...creds, auth_token: 'at', storage_url: 'https://store' },
+					'client'
+				)
+			).toEqual(['auth_token', 'at', 'storage_url', 'https://store']);
+		});
+
+		it.each(['auth_token', 'storage_url'])('client: returns false without %s', key => {
+			const tokenCreds = { auth_token: 'at', storage_url: 'https://store', [key]: '' };
+
+			expect(providers.swift.setup(tokenCreds, 'client')).toBe(false);
+		});
+
+		it('lists password as the default auth type', () => {
+			expect(providers.swift.authTypes[0]).toBe('password');
 		});
 	});
 

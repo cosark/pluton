@@ -37,6 +37,7 @@ const swiftSettings = [
 			{ label: 'Blomp Cloud Storage', value: 'https://authenticate.ain.net' },
 			{ label: 'Custom', value: 'custom' },
 		],
+		allowCustom: true,
 		command: '--swift-auth',
 	},
 	{
@@ -73,7 +74,8 @@ const swiftSettings = [
 		label: 'Tenant Name',
 		value: 'tenant',
 		fieldType: 'string',
-		required: true,
+		authFieldType: 'password',
+		required: false,
 		default: '',
 		description:
 			'Tenant name. Optional for v1 auth, otherwise this or Tenant ID is required.',
@@ -113,8 +115,10 @@ const swiftSettings = [
 		value: 'storage_url',
 		fieldType: 'string',
 		required: false,
+		authFieldType: 'all',
 		default: '',
-		description: 'Storage URL (optional).',
+		description:
+			'Storage URL. Required with Auth Token login. Optional with User/Pass login, where it overrides the URL from the auth server.',
 		command: '--swift-storage-url',
 	},
 	{
@@ -124,7 +128,8 @@ const swiftSettings = [
 		required: false,
 		authFieldType: 'all',
 		default: '',
-		description: 'Auth token from alternate authentication (optional).',
+		description:
+			'Auth token from alternate authentication. Required with Auth Token login, together with Storage URL.',
 		command: '--swift-auth-token',
 	},
 	{

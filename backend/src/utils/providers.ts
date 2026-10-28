@@ -332,18 +332,28 @@ export const providers: Record<string, ProviderConfig> = {
 		name: 'Oracle Swift',
 		doc: '/storages/connecting-openstack-swift',
 		settings: swiftSettings,
-		authTypes: ['client', 'password'],
-		setup: creds => [
-			'user',
-			creds.user,
-			'key',
-			creds.key,
-			'auth',
-			creds.authUrl,
-			'tenant',
-			creds.tenant,
-			...optionalCreds(creds, ['auth_token']),
-		],
+		authTypes: ['password', 'client'],
+		setup: (creds, type) => {
+			// Client login uses a pre-issued token and skips the auth server.
+			if (type === 'client') {
+				if (!creds.auth_token || !creds.storage_url) {
+					return false;
+				}
+				return ['auth_token', creds.auth_token, 'storage_url', creds.storage_url];
+			}
+			if (!creds.user || !creds.key || !creds.auth) {
+				return false;
+			}
+			return [
+				'user',
+				creds.user,
+				'key',
+				creds.key,
+				'auth',
+				creds.auth,
+				...optionalCreds(creds, ['tenant', 'storage_url', 'auth_token']),
+			];
+		},
 		features: providerFeatures['swift'],
 	},
 	storj: {
