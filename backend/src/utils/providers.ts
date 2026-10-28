@@ -533,14 +533,14 @@ export const providers: Record<string, ProviderConfig> = {
 				}
 				return ['token', creds.token, ...optionalCreds(creds, ['client_secret'])];
 			} else {
-				if (!creds.user || !creds.password) {
+				if (!creds.user || !creds.pass) {
 					return false;
 				}
 				return [
 					'user',
 					creds.user,
-					'password',
-					creds.password,
+					'pass',
+					creds.pass,
 					...optionalCreds(creds, ['client_secret']),
 				];
 			}

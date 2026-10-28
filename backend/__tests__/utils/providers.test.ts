@@ -254,17 +254,21 @@ describe('providers setup()', () => {
 
 		it('password: sends client_secret when set', () => {
 			expect(
-				providers.mailru.setup({ user: 'u', password: 'p', client_secret: 'cs' }, 'password')
-			).toEqual(['user', 'u', 'password', 'p', 'client_secret', 'cs']);
+				providers.mailru.setup({ user: 'u', pass: 'p', client_secret: 'cs' }, 'password')
+			).toEqual(['user', 'u', 'pass', 'p', 'client_secret', 'cs']);
 		});
 
 		it('password: omits client_secret when absent', () => {
-			expect(providers.mailru.setup({ user: 'u', password: 'p' }, 'password')).toEqual([
+			expect(providers.mailru.setup({ user: 'u', pass: 'p' }, 'password')).toEqual([
 				'user',
 				'u',
-				'password',
+				'pass',
 				'p',
 			]);
+		});
+
+		it('password: returns false without pass', () => {
+			expect(providers.mailru.setup({ user: 'u' }, 'password')).toBe(false);
 		});
 	});
 
