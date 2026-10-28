@@ -34,6 +34,7 @@ const protondriveSettings = [
 		value: 'mailbox_password',
 		fieldType: 'password',
 		required: false,
+		authFieldType: 'all',
 		default: '',
 		description:
 			'The mailbox password of your two-password proton account. For more information regarding the mailbox password, please check the following official knowledge base article: https://proton.me/support/the-difference-between-the-mailbox-password-and-login-password',

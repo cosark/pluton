@@ -142,6 +142,28 @@ describe('StorageService', () => {
 			expect(result.name).toBe('My S3');
 		});
 
+		it('should convert decrypted bool and int credentials back to their field type', async () => {
+			mockStorageStore.getById.mockResolvedValue({
+				...mockStorage,
+				type: 'ftp',
+				credentials: {
+					host: 'encrypted(ftp.example.com)',
+					port: 'encrypted(2121)',
+					tls: 'encrypted(false)',
+					explicit_tls: 'encrypted(true)',
+				},
+			} as any);
+
+			const result = await storageService.getStorage(storageId);
+
+			expect(result.credentials).toEqual({
+				host: 'ftp.example.com',
+				port: 2121,
+				tls: false,
+				explicit_tls: true,
+			});
+		});
+
 		it('should throw NotFoundError if storage does not exist', async () => {
 			mockStorageStore.getById.mockResolvedValue(null);
 
@@ -228,6 +250,34 @@ describe('StorageService', () => {
 
 			// Restore the original console.error function
 			consoleErrorSpy.mockRestore();
+		});
+
+		it('moves webdav secrets from settings into encrypted credentials', async () => {
+			mockStorageManager.createRemote.mockResolvedValue({ success: true, result: 'OK' });
+			mockStorageStore.create.mockImplementation(data => Promise.resolve(data as Storage));
+
+			await storageService.createStorage({
+				name: 'My WebDAV',
+				type: 'webdav',
+				authType: 'password',
+				credentials: { url: 'https://dav.example.com' },
+				settings: { user: 'bob', pass: 'secret', vendor: 'nextcloud' },
+			});
+
+			expect(mockStorageManager.createRemote).toHaveBeenCalledWith(
+				'webdav',
+				'My WebDAV',
+				'password',
+				{ url: 'https://dav.example.com' },
+				{ user: 'bob', pass: 'secret', vendor: 'nextcloud' }
+			);
+			const stored = mockStorageStore.create.mock.calls[0][0];
+			expect(stored.settings).toEqual({ vendor: 'nextcloud' });
+			expect(stored.credentials).toEqual({
+				url: 'encrypted(https://dav.example.com)',
+				user: 'encrypted(bob)',
+				pass: 'encrypted(secret)',
+			});
 		});
 	});
 
@@ -331,6 +381,19 @@ describe('StorageService', () => {
 			expect(sent.new).toEqual({ idle_timeout: '1m0s' });
 		});
 
+		it('does not resend the credentials when the UI sends typed values back', async () => {
+			const typedPayload = {
+				...payload,
+				credentials: { port: 22, host: 'example.com' },
+			} as unknown as Partial<Storage>;
+
+			await storageService.updateStorage(storageId, typedPayload);
+
+			const sent = (mockLocalStrategy.updateRemoteStorage as jest.Mock).mock.calls[0][1];
+			expect(sent.new).toEqual({ idle_timeout: '1m0s' });
+			expect(sent.old).toEqual({ idle_timeout: '1m0s' });
+		});
+
 		it('writes the encrypted credentials to the database', async () => {
 			await storageService.updateStorage(storageId, payload);
 
@@ -348,6 +411,38 @@ describe('StorageService', () => {
 			await expect(storageService.updateStorage(storageId, payload)).rejects.toThrow(
 				'Storage not found'
 			);
+		});
+
+		it('moves webdav secrets from settings into encrypted credentials', async () => {
+			mockStorageStore.getById.mockResolvedValue({
+				id: storageId,
+				name: 'My WebDAV',
+				type: 'webdav',
+				settings: { vendor: 'nextcloud' },
+				credentials: { url: 'encrypted(https://dav.example.com)' },
+			} as unknown as Storage);
+
+			await storageService.updateStorage(storageId, {
+				type: 'webdav',
+				authType: 'password',
+				credentials: { url: 'https://dav.example.com' },
+				settings: { user: 'bob', pass: 'secret', vendor: 'nextcloud' },
+				tags: [],
+			});
+
+			expect(mockLocalStrategy.updateRemoteStorage).toHaveBeenCalledWith(
+				'My WebDAV',
+				expect.objectContaining({
+					new: { user: 'bob', pass: 'secret', vendor: 'nextcloud' },
+				})
+			);
+			const stored = mockStorageStore.update.mock.calls[0][1];
+			expect(stored.settings).toEqual({ vendor: 'nextcloud' });
+			expect(stored.credentials).toEqual({
+				url: 'encrypted(https://dav.example.com)',
+				user: 'encrypted(bob)',
+				pass: 'encrypted(secret)',
+			});
 		});
 	});
 

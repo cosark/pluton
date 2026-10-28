@@ -122,6 +122,7 @@ const swiftSettings = [
 		value: 'auth_token',
 		fieldType: 'password',
 		required: false,
+		authFieldType: 'all',
 		default: '',
 		description: 'Auth token from alternate authentication (optional).',
 		command: '--swift-auth-token',

@@ -33,6 +33,7 @@ const webdavSettings = [
 		value: 'user',
 		fieldType: 'string',
 		required: false,
+		authFieldType: 'password',
 		default: '',
 		description:
 			"User name. In case NTLM authentication is used, the username should be in the format 'Domain\\User'.",
@@ -43,6 +44,7 @@ const webdavSettings = [
 		value: 'pass',
 		fieldType: 'password',
 		required: false,
+		authFieldType: 'password',
 		default: '',
 		description: 'Password.',
 		command: '--webdav-pass',
@@ -52,6 +54,7 @@ const webdavSettings = [
 		value: 'bearer_token',
 		fieldType: 'password',
 		required: false,
+		authFieldType: 'password',
 		default: '',
 		description: 'Bearer token instead of user/pass (e.g. a Macaroon).',
 		command: '--webdav-bearer-token',

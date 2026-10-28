@@ -143,7 +143,13 @@ export const providers: Record<string, ProviderConfig> = {
 				if (!creds.token) {
 					return false;
 				}
-				return ['token', creds.token, 'scope', creds.scope || 'drive'];
+				return [
+					'token',
+					creds.token,
+					'scope',
+					creds.scope || 'drive',
+					...optionalCreds(creds, ['service_account_credentials']),
+				];
 			} else {
 				if (!creds.client_id || !creds.client_secret) {
 					return false;
@@ -155,6 +161,7 @@ export const providers: Record<string, ProviderConfig> = {
 					creds.client_secret,
 					'scope',
 					creds.scope || 'drive',
+					...optionalCreds(creds, ['service_account_credentials']),
 					'--drive-client-credentials',
 				];
 			}
@@ -249,7 +256,13 @@ export const providers: Record<string, ProviderConfig> = {
 			}
 			// The key is the base64 string from the Azure portal. rclone passes it
 			// through and the Azure SDK decodes it, so do not encode it here.
-			return ['account', creds.account, 'key', creds.key];
+			return [
+				'account',
+				creds.account,
+				'key',
+				creds.key,
+				...optionalCreds(creds, ['client_secret', 'client_certificate_password', 'password']),
+			];
 		},
 		features: providerFeatures['azureblob'],
 	},
@@ -264,7 +277,7 @@ export const providers: Record<string, ProviderConfig> = {
 				if (!creds.token) {
 					return false;
 				}
-				return ['token', creds.token];
+				return ['token', creds.token, ...optionalCreds(creds, ['access_token'])];
 			} else {
 				if (!creds.project_number || !creds.service_account_file) {
 					return false;
@@ -274,6 +287,7 @@ export const providers: Record<string, ProviderConfig> = {
 					creds.project_number,
 					'service_account_file',
 					creds.service_account_file,
+					...optionalCreds(creds, ['access_token']),
 				];
 			}
 		},
@@ -328,6 +342,7 @@ export const providers: Record<string, ProviderConfig> = {
 			creds.authUrl,
 			'tenant',
 			creds.tenant,
+			...optionalCreds(creds, ['auth_token']),
 		],
 		features: providerFeatures['swift'],
 	},
@@ -374,6 +389,7 @@ export const providers: Record<string, ProviderConfig> = {
 				creds.pass,
 				'library',
 				creds.library,
+				...optionalCreds(creds, ['auth_token']),
 			];
 			if (creds['2fa']) {
 				config.push('2fa', creds['2fa']);
@@ -393,7 +409,13 @@ export const providers: Record<string, ProviderConfig> = {
 				if (!creds.login_token) {
 					return false;
 				}
-				return ['config_login_token', creds.login_token, 'config_type', 'standard'];
+				return [
+					'config_login_token',
+					creds.login_token,
+					'config_type',
+					'standard',
+					...optionalCreds(creds, ['token']),
+				];
 			} else {
 				if (!creds.client_id || !creds.client_secret) {
 					return false;
@@ -403,6 +425,7 @@ export const providers: Record<string, ProviderConfig> = {
 					creds.client_id,
 					'client_secret',
 					creds.client_secret,
+					...optionalCreds(creds, ['token']),
 					'--jottacloud-client-credentials',
 				];
 			}
@@ -508,12 +531,18 @@ export const providers: Record<string, ProviderConfig> = {
 				if (!creds.token) {
 					return false;
 				}
-				return ['token', creds.token];
+				return ['token', creds.token, ...optionalCreds(creds, ['client_secret'])];
 			} else {
 				if (!creds.user || !creds.password) {
 					return false;
 				}
-				return ['user', creds.user, 'password', creds.password];
+				return [
+					'user',
+					creds.user,
+					'password',
+					creds.password,
+					...optionalCreds(creds, ['client_secret']),
+				];
 			}
 		},
 		features: providerFeatures['mailru'],
@@ -767,7 +796,13 @@ export const providers: Record<string, ProviderConfig> = {
 		authTypes: ['password'],
 		settings: protondriveSettings,
 		setup: creds => {
-			const config = ['username', creds.username, 'password', creds.password];
+			const config = [
+				'username',
+				creds.username,
+				'password',
+				creds.password,
+				...optionalCreds(creds, ['mailbox_password']),
+			];
 			if (creds['2fa']) {
 				config.push('2fa', creds['2fa']);
 			}
@@ -835,7 +870,7 @@ export const providers: Record<string, ProviderConfig> = {
 			creds.user,
 			'pass',
 			creds.pass,
-			...optionalCreds(creds, ['port']),
+			...optionalCreds(creds, ['port', 'key_file_pass']),
 		],
 		features: providerFeatures['sftp'],
 	},
@@ -860,7 +895,7 @@ export const providers: Record<string, ProviderConfig> = {
 		doc: '/storages/connecting-webdav',
 		authTypes: ['password'],
 		settings: webdavSettings,
-		setup: creds => ['url', creds.url, 'user', creds.user, 'pass', creds.pass],
+		setup: creds => ['url', creds.url, ...optionalCreds(creds, ['user', 'pass', 'bearer_token'])],
 		features: providerFeatures['webdav'],
 	},
 	http: {

@@ -223,6 +223,7 @@ const gcsSettings = [
 		value: 'access_token',
 		fieldType: 'password',
 		required: false,
+		authFieldType: 'all',
 		default: '',
 		description:
 			'Short-lived access token. Leave blank normally. Needed only if you want use short-lived access token instead of interactive login.',

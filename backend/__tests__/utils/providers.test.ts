@@ -66,4 +66,301 @@ describe('providers setup()', () => {
 			expect(providers.smb.setup(base)).toEqual(baseArgs);
 		});
 	});
+
+	describe('sftp key_file_pass', () => {
+		it('sends key_file_pass when it is set', () => {
+			expect(providers.sftp.setup({ ...base, key_file_pass: 'kfp' })).toEqual([
+				...baseArgs,
+				'key_file_pass',
+				'kfp',
+			]);
+		});
+
+		it('omits key_file_pass when it is blank', () => {
+			expect(providers.sftp.setup({ ...base, key_file_pass: '' })).toEqual(baseArgs);
+		});
+	});
+
+	describe('azureblob', () => {
+		const creds = { account: 'acc', key: 'k' };
+		const args = ['account', 'acc', 'key', 'k'];
+
+		it('sends the secret fields when they are set', () => {
+			expect(
+				providers.azureblob.setup({
+					...creds,
+					client_secret: 'cs',
+					client_certificate_password: 'ccp',
+					password: 'pw',
+				})
+			).toEqual([
+				...args,
+				'client_secret',
+				'cs',
+				'client_certificate_password',
+				'ccp',
+				'password',
+				'pw',
+			]);
+		});
+
+		it('omits the secret fields when they are blank', () => {
+			expect(
+				providers.azureblob.setup({
+					...creds,
+					client_secret: '',
+					client_certificate_password: '',
+					password: '',
+				})
+			).toEqual(args);
+		});
+	});
+
+	describe('drive', () => {
+		const sac = '{"type":"service_account"}';
+
+		it('oauth: sends service_account_credentials when set', () => {
+			expect(
+				providers.drive.setup({ token: 't', service_account_credentials: sac }, 'oauth')
+			).toEqual(['token', 't', 'scope', 'drive', 'service_account_credentials', sac]);
+		});
+
+		it('oauth: omits service_account_credentials when blank', () => {
+			expect(
+				providers.drive.setup({ token: 't', service_account_credentials: '' }, 'oauth')
+			).toEqual(['token', 't', 'scope', 'drive']);
+		});
+
+		it('client: sends service_account_credentials before the client flag', () => {
+			expect(
+				providers.drive.setup(
+					{ client_id: 'id', client_secret: 'sec', service_account_credentials: sac },
+					'client'
+				)
+			).toEqual([
+				'client_id',
+				'id',
+				'client_secret',
+				'sec',
+				'scope',
+				'drive',
+				'service_account_credentials',
+				sac,
+				'--drive-client-credentials',
+			]);
+		});
+
+		it('client: omits service_account_credentials when absent', () => {
+			expect(providers.drive.setup({ client_id: 'id', client_secret: 'sec' }, 'client')).toEqual([
+				'client_id',
+				'id',
+				'client_secret',
+				'sec',
+				'scope',
+				'drive',
+				'--drive-client-credentials',
+			]);
+		});
+	});
+
+	describe('gcs', () => {
+		it('oauth: sends access_token when set', () => {
+			expect(providers.gcs.setup({ token: 't', access_token: 'at' }, 'oauth')).toEqual([
+				'token',
+				't',
+				'access_token',
+				'at',
+			]);
+		});
+
+		it('oauth: omits access_token when blank', () => {
+			expect(providers.gcs.setup({ token: 't', access_token: '' }, 'oauth')).toEqual(['token', 't']);
+		});
+
+		it('client: sends access_token when set', () => {
+			expect(
+				providers.gcs.setup(
+					{ project_number: '1', service_account_file: '/f.json', access_token: 'at' },
+					'client'
+				)
+			).toEqual(['project_number', '1', 'service_account_file', '/f.json', 'access_token', 'at']);
+		});
+
+		it('client: omits access_token when absent', () => {
+			expect(
+				providers.gcs.setup({ project_number: '1', service_account_file: '/f.json' }, 'client')
+			).toEqual(['project_number', '1', 'service_account_file', '/f.json']);
+		});
+	});
+
+	describe('jottacloud', () => {
+		it('password: sends token when set', () => {
+			expect(providers.jottacloud.setup({ login_token: 'lt', token: 'tok' }, 'password')).toEqual([
+				'config_login_token',
+				'lt',
+				'config_type',
+				'standard',
+				'token',
+				'tok',
+			]);
+		});
+
+		it('password: omits token when blank', () => {
+			expect(providers.jottacloud.setup({ login_token: 'lt', token: '' }, 'password')).toEqual([
+				'config_login_token',
+				'lt',
+				'config_type',
+				'standard',
+			]);
+		});
+
+		it('client: sends token before the client flag', () => {
+			expect(
+				providers.jottacloud.setup({ client_id: 'id', client_secret: 'sec', token: 'tok' }, 'client')
+			).toEqual([
+				'client_id',
+				'id',
+				'client_secret',
+				'sec',
+				'token',
+				'tok',
+				'--jottacloud-client-credentials',
+			]);
+		});
+
+		it('client: omits token when absent', () => {
+			expect(providers.jottacloud.setup({ client_id: 'id', client_secret: 'sec' }, 'client')).toEqual(
+				['client_id', 'id', 'client_secret', 'sec', '--jottacloud-client-credentials']
+			);
+		});
+	});
+
+	describe('mailru', () => {
+		it('oauth: sends client_secret when set', () => {
+			expect(providers.mailru.setup({ token: 't', client_secret: 'cs' }, 'oauth')).toEqual([
+				'token',
+				't',
+				'client_secret',
+				'cs',
+			]);
+		});
+
+		it('oauth: omits client_secret when blank', () => {
+			expect(providers.mailru.setup({ token: 't', client_secret: '' }, 'oauth')).toEqual([
+				'token',
+				't',
+			]);
+		});
+
+		it('password: sends client_secret when set', () => {
+			expect(
+				providers.mailru.setup({ user: 'u', password: 'p', client_secret: 'cs' }, 'password')
+			).toEqual(['user', 'u', 'password', 'p', 'client_secret', 'cs']);
+		});
+
+		it('password: omits client_secret when absent', () => {
+			expect(providers.mailru.setup({ user: 'u', password: 'p' }, 'password')).toEqual([
+				'user',
+				'u',
+				'password',
+				'p',
+			]);
+		});
+	});
+
+	describe('protondrive', () => {
+		const creds = { username: 'u', password: 'p' };
+
+		it('sends mailbox_password when set', () => {
+			expect(providers.protondrive.setup({ ...creds, mailbox_password: 'mp' })).toEqual([
+				'username',
+				'u',
+				'password',
+				'p',
+				'mailbox_password',
+				'mp',
+			]);
+		});
+
+		it('omits mailbox_password when blank', () => {
+			expect(providers.protondrive.setup({ ...creds, mailbox_password: '' })).toEqual([
+				'username',
+				'u',
+				'password',
+				'p',
+			]);
+		});
+	});
+
+	describe('seafile', () => {
+		const creds = { url: 'https://sf', user: 'u', pass: 'p', library: 'lib' };
+		const args = ['url', 'https://sf', 'user', 'u', 'pass', 'p', 'library', 'lib'];
+
+		it('sends auth_token when set', () => {
+			expect(providers.seafile.setup({ ...creds, auth_token: 'at' })).toEqual([
+				...args,
+				'auth_token',
+				'at',
+			]);
+		});
+
+		it('omits auth_token when blank', () => {
+			expect(providers.seafile.setup({ ...creds, auth_token: '' })).toEqual(args);
+		});
+	});
+
+	describe('swift', () => {
+		const creds = { user: 'u', key: 'k', authUrl: 'https://auth', tenant: 't' };
+		const args = ['user', 'u', 'key', 'k', 'auth', 'https://auth', 'tenant', 't'];
+
+		it('sends auth_token when set', () => {
+			expect(providers.swift.setup({ ...creds, auth_token: 'at' })).toEqual([
+				...args,
+				'auth_token',
+				'at',
+			]);
+		});
+
+		it('omits auth_token when blank', () => {
+			expect(providers.swift.setup({ ...creds, auth_token: '' })).toEqual(args);
+		});
+	});
+
+	describe('webdav', () => {
+		it('sends user, pass and bearer_token when set', () => {
+			expect(
+				providers.webdav.setup({ url: 'https://dav', user: 'u', pass: 'p', bearer_token: 'bt' })
+			).toEqual(['url', 'https://dav', 'user', 'u', 'pass', 'p', 'bearer_token', 'bt']);
+		});
+
+		it('sends only url and bearer_token when user and pass are absent', () => {
+			const args = providers.webdav.setup({ url: 'https://dav', bearer_token: 'bt' }) as string[];
+
+			expect(args).toEqual(['url', 'https://dav', 'bearer_token', 'bt']);
+			expect(args).not.toContain(undefined);
+			expect(args).not.toContain('user');
+			expect(args).not.toContain('pass');
+		});
+
+		it('omits blank user and pass', () => {
+			expect(providers.webdav.setup({ url: 'https://dav', user: '', pass: '' })).toEqual([
+				'url',
+				'https://dav',
+			]);
+		});
+	});
+
+	describe('secret fields', () => {
+		it('gives every password field an authFieldType', () => {
+			const missing: string[] = [];
+			Object.entries(providers).forEach(([type, provider]) => {
+				(provider.settings || []).forEach((field: any) => {
+					if (field.fieldType === 'password' && !field.authFieldType) {
+						missing.push(`${type}.${field.value}`);
+					}
+				});
+			});
+			expect(missing).toEqual([]);
+		});
+	});
 });

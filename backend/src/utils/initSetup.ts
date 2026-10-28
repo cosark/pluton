@@ -13,10 +13,17 @@ import { devices } from '../db/schema/devices';
 import { configService } from '../services/ConfigService';
 import { appPaths } from './AppPaths';
 import { securityKeyManager } from '../managers/SecurityKeyManager';
+import { migrateStorageSecrets } from './migrateStorageSecrets';
 
 export async function initSetup(db: BetterSQLite3Database) {
 	const setupCompletePath = path.join(appPaths.getDataDir(), '.setup_complete');
 	console.log('setupCompletePath :', setupCompletePath);
+
+	try {
+		await migrateStorageSecrets(db);
+	} catch (error: any) {
+		console.error('[INIT] Storage secrets migration failed:', error?.message || error);
+	}
 
 	try {
 		await fs.access(setupCompletePath);

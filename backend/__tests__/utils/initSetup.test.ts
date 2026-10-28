@@ -22,6 +22,7 @@ jest.mock('../../src/utils/versions');
 jest.mock('../../src/managers/BaseStorageManager');
 jest.mock('../../src/services/ConfigService');
 jest.mock('../../src/managers/SecurityKeyManager');
+jest.mock('../../src/utils/migrateStorageSecrets');
 
 // Mock fs.mkdirSync before AppPaths is imported
 const fsMock = require('fs');
@@ -61,6 +62,7 @@ import { getRcloneVersion, getResticVersion } from '../../src/utils/versions';
 import { configService } from '../../src/services/ConfigService';
 import { appPaths } from '../../src/utils/AppPaths';
 import { securityKeyManager } from '../../src/managers/SecurityKeyManager';
+import { migrateStorageSecrets } from '../../src/utils/migrateStorageSecrets';
 
 describe('initSetup', () => {
 	let mockDb: any;
@@ -107,6 +109,29 @@ describe('initSetup', () => {
 			expect(console.log).toHaveBeenCalledWith('[INIT] Setup already completed. Skipping.');
 			expect(mockDb.select).not.toHaveBeenCalled();
 		});
+
+		it('runs the storage secrets migration with the db', async () => {
+			(fs.access as jest.Mock).mockResolvedValue(undefined);
+
+			await initSetup(mockDb);
+
+			expect(migrateStorageSecrets).toHaveBeenCalledTimes(1);
+			expect(migrateStorageSecrets).toHaveBeenCalledWith(mockDb);
+		});
+
+		it('continues when the storage secrets migration rejects', async () => {
+			(fs.access as jest.Mock).mockResolvedValue(undefined);
+			(migrateStorageSecrets as jest.Mock).mockRejectedValueOnce(new Error('migration boom'));
+			const errorSpy = jest.spyOn(console, 'error').mockImplementation();
+
+			await expect(initSetup(mockDb)).resolves.toBeUndefined();
+
+			expect(errorSpy).toHaveBeenCalledWith(
+				'[INIT] Storage secrets migration failed:',
+				'migration boom'
+			);
+			expect(console.log).toHaveBeenCalledWith('[INIT] Setup already completed. Skipping.');
+		});
 	});
 
 	describe('when setup is not complete', () => {
@@ -141,6 +166,31 @@ describe('initSetup', () => {
 			expect(console.log).toHaveBeenCalledWith(
 				'[INIT] First run detected. Starting initial setup...'
 			);
+			expect(securityKeyManager.setupInitialKeys).toHaveBeenCalled();
+			expect(fs.writeFile).toHaveBeenCalledWith(setupCompletePath, expect.any(String));
+			expect(console.log).toHaveBeenCalledWith('[INIT] Initial setup complete.');
+			expect(migrateStorageSecrets).toHaveBeenCalledWith(mockDb);
+		});
+
+		it('still runs the initial setup when the storage secrets migration rejects', async () => {
+			mockDb.get.mockResolvedValue(null);
+			mockDb.values.mockResolvedValue(undefined);
+			(migrateStorageSecrets as jest.Mock).mockRejectedValueOnce(new Error('migration boom'));
+			jest.spyOn(console, 'error').mockImplementation();
+
+			(securityKeyManager.setupInitialKeys as jest.Mock).mockResolvedValue(undefined);
+			(getResticVersion as jest.Mock).mockReturnValue('0.16.0');
+			(getRcloneVersion as jest.Mock).mockReturnValue('1.64.0');
+			(os.hostname as jest.Mock).mockReturnValue('test-hostname');
+			(os.platform as jest.Mock).mockReturnValue('linux');
+			(si.osInfo as jest.Mock).mockResolvedValue({ distro: 'Ubuntu', release: '22.04' });
+			(configService.config as any) = { APP_TITLE: 'Pluton' };
+			(BaseStorageManager as jest.Mock).mockImplementation(() => ({
+				createRemote: jest.fn().mockResolvedValue({ success: true }),
+			}));
+
+			await initSetup(mockDb);
+
 			expect(securityKeyManager.setupInitialKeys).toHaveBeenCalled();
 			expect(fs.writeFile).toHaveBeenCalledWith(setupCompletePath, expect.any(String));
 			expect(console.log).toHaveBeenCalledWith('[INIT] Initial setup complete.');

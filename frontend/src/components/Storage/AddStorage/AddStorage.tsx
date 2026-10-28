@@ -104,7 +104,6 @@ const AddStorage = ({ close }: AddStorageProps) => {
             });
          }
       });
-      console.log('storageCredentials :', storageCredentials);
    }, [storageTitle, storageType, storageCredentials]);
 
    const addStorage = () => {

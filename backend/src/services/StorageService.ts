@@ -14,6 +14,11 @@ import {
 } from '../strategies/system';
 import { generateUID, normalizeStorageName } from '../utils/helpers';
 import { sanitizeStoragePath } from '../utils/sanitizeStoragePath';
+import {
+	credentialsEqual,
+	moveSecretSettings,
+	restoreCredentialTypes,
+} from '../utils/storageSecrets';
 import { BaseSystemManager } from '../managers/BaseSystemManager';
 import { configService } from './ConfigService';
 import { AppError, NotFoundError } from '../utils/AppError';
@@ -69,7 +74,9 @@ export class StorageService {
 
 	async getStorage(
 		id: string
-	): Promise<Storage & { credentials: Record<string, string>; authTypes: string[] }> {
+	): Promise<
+		Storage & { credentials: Record<string, string | number | boolean>; authTypes: string[] }
+	> {
 		const storage = await this.storageStore.getById(id);
 		if (!storage) {
 			throw new NotFoundError('Storage not found');
@@ -87,7 +94,8 @@ export class StorageService {
 				});
 			}
 			const authTypes = providers[storage.type as string].authTypes;
-			return { ...storage, credentials: decryptedCreds, authTypes };
+			const credentials = restoreCredentialTypes(storage.type as string, decryptedCreds);
+			return { ...storage, credentials, authTypes };
 		} catch (error: any) {
 			throw new AppError(
 				500,
@@ -238,9 +246,15 @@ export class StorageService {
 				throw new AppError(500, remoteResult.result || 'Error creating remote storage.');
 			}
 
+			const safe = moveSecretSettings(
+				type as string,
+				settings as Record<string, string>,
+				credentials as Record<string, string>
+			);
+
 			// Encrypt Storage Credentials
 			const cryptr = new Cryptr(configService.config.SECRET as string);
-			const credsObj = credentials as Record<string, string>;
+			const credsObj = safe.credentials as Record<string, string>;
 			const encryptedCreds: Record<string, string> = {};
 			Object.keys(credsObj).forEach(k => {
 				encryptedCreds[k] = cryptr.encrypt(credsObj[k]);
@@ -252,7 +266,7 @@ export class StorageService {
 				id: storageId,
 				name: storageName,
 				type: type as string,
-				settings: settings as Record<string, string>,
+				settings: safe.settings as Record<string, string>,
 				credentials: encryptedCreds,
 				defaultPath: credsObj?.bucket || '/',
 				authType: authType as string,
@@ -311,8 +325,10 @@ export class StorageService {
 				}
 
 				// If old creds and new creds are same, no need to send them
-				const credsDifferent =
-					JSON.stringify(decryptedOldCred) !== JSON.stringify(credentials) ? true : false;
+				const credsDifferent = !credentialsEqual(
+					decryptedOldCred,
+					credentials as Record<string, unknown>
+				);
 
 				const deviceUpdatePromises = devicesWithStorage.map(async sourceId => {
 					const strategy = this.getSystemStrategy(sourceId);
@@ -331,16 +347,22 @@ export class StorageService {
 				await Promise.all(deviceUpdatePromises);
 			}
 
+			const safe = moveSecretSettings(
+				existingStorage.type as string,
+				settings as Record<string, string>,
+				credentials as Record<string, string>
+			);
+
 			// Encrypt Storage Credentials
 			const cryptr = new Cryptr(configService.config.SECRET as string);
-			const credsObj = credentials as Record<string, string>;
+			const credsObj = safe.credentials as Record<string, string>;
 			const encryptedCreds: Record<string, string> = {};
 			Object.keys(credsObj).forEach(k => {
 				encryptedCreds[k] = cryptr.encrypt(credsObj[k]);
 			});
 
 			const updatedStorage = await this.storageStore.update(id, {
-				settings: settings as Record<string, string>,
+				settings: safe.settings as Record<string, string>,
 				credentials: encryptedCreds,
 				tags: tags as string[],
 			});

@@ -64,6 +64,7 @@ const sftpSettings = [
 		command: '--sftp-key-file-pass',
 		fieldType: 'password',
 		required: false,
+		authFieldType: 'all',
 		value: 'key_file_pass',
 		default: '',
 		description:

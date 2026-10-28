@@ -34,6 +34,7 @@ const jottacloudSettings = [
 		value: 'token',
 		fieldType: 'password',
 		required: false,
+		authFieldType: 'all',
 		default: '',
 		description: 'OAuth Access Token as a JSON blob.',
 		command: '--jottacloud-token',

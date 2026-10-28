@@ -34,6 +34,7 @@ const mailruSettings = [
 		value: 'client_secret',
 		fieldType: 'password',
 		required: false,
+		authFieldType: 'all',
 		default: '',
 		description: 'OAuth Client Secret. Leave blank normally.',
 		command: '--mailru-client-secret',

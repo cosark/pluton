@@ -63,6 +63,7 @@ const seafileSettings = [
 		value: 'auth_token',
 		fieldType: 'password',
 		required: false,
+		authFieldType: 'all',
 		default: '',
 		description: 'Authentication token.',
 		command: '--seafile-auth-token',

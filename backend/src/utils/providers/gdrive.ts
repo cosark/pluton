@@ -99,6 +99,7 @@ const googleDriveSettings = [
 		value: 'service_account_credentials',
 		fieldType: 'password',
 		required: false,
+		authFieldType: 'all',
 		default: '',
 		description:
 			'Service Account credentials as a JSON string. Leave blank to use interactive login.',
