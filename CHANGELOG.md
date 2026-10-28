@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.21.0](https://github.com/plutonhq/pluton/compare/pluton-v0.20.0...pluton-v0.21.0) (2026-10-20)
+
+
+### Features
+
+* add ability to resume snapshot downloads ([6fab420](https://github.com/plutonhq/pluton/commit/6fab420f76b5b5e480b18c99db317bc37e861367)), closes [#129](https://github.com/plutonhq/pluton/issues/129)
+
+
+### Bug Fixes
+
+* resolves broken 2fa login ([7f69a7f](https://github.com/plutonhq/pluton/commit/7f69a7f2caa0d39f570851a8c1d0c9a7deed2b27)), closes [#127](https://github.com/plutonhq/pluton/issues/127)
+* resolves broken custom port config override ([39d670e](https://github.com/plutonhq/pluton/commit/39d670efe9bca0c4887ffc76ece64a005d6d6749))
+* resolves server crash on missing snapshot download ([dd2d69c](https://github.com/plutonhq/pluton/commit/dd2d69cb23b05affe80cffee2e37fe715af1d67e)), closes [#128](https://github.com/plutonhq/pluton/issues/128)
+* resolves various restore issues ([33368d0](https://github.com/plutonhq/pluton/commit/33368d0697b7c394d932b632ffdfeaaa30f2af1f))
+
 ## [0.20.0](https://github.com/plutonhq/pluton/compare/pluton-v0.19.0...pluton-v0.20.0) (2026-09-09)
 
 
