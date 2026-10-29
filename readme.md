@@ -132,6 +132,11 @@ docker compose up -d
 
 Pluton can be installed on headless Linux servers. Follow the installation [instruction](https://docs.usepluton.com/docs/getting-started/install-pluton-linux-server/) to get started.
 
+## One-Click Deploy
+
+<a href="https://repocloud.io/details/Pluton/"><img src="https://d16t0pc4846x52.cloudfront.net/deploylobe.svg" alt="Deploy on RepoCloud" height="42"></a>
+<a href="https://railway.com/deploy/pluton"><img src="https://railway.com/button.svg" alt="Deploy on Railway" height="42"></a>
+
 ---
 
 ## Acknowledgements
